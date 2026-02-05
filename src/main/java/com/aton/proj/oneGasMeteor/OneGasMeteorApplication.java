@@ -1,13 +1,13 @@
-package com.aton.proj.onGasMeteor;
+package com.aton.proj.oneGasMeteor;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class OnGasMeteorApplication {
+public class OneGasMeteorApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(OnGasMeteorApplication.class, args);
+		SpringApplication.run(OneGasMeteorApplication.class, args);
 	}
 
 }

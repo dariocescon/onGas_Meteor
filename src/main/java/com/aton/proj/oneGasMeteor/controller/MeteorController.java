@@ -1,4 +1,4 @@
-package com.aton.proj.onGasMeteor.controller;
+package com.aton.proj.oneGasMeteor.controller;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;

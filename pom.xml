@@ -11,9 +11,9 @@
 	</parent>
 
 	<groupId>com.aton.proj</groupId>
-	<artifactId>onGasMeteor</artifactId>
+	<artifactId>oneGasMeteor</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>onGasMeteor</name>
+	<name>oneGasMeteor</name>
 	<description>Application to receive data from telemetry devices</description>
 	<url />
 	<licenses>
