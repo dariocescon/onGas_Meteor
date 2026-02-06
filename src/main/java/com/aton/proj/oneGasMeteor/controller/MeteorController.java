@@ -45,7 +45,7 @@ public class MeteorController {
 		response.put("gatewaySource", gatewaySource);
 
 		// Log per vedere quale istanza risponde
-		System.out.println("🚀 [PORT " + serverPort + "] Request received at " + LocalDateTime.now());
+		System.out.println(" Meteor [PORT " + serverPort + "] Request received at " + LocalDateTime.now());
 
 		return response;
 	}
@@ -61,7 +61,7 @@ public class MeteorController {
 		response.put("message", "Processing request on port " + serverPort);
 		response.put("timestamp", LocalDateTime.now());
 
-		System.out.println("⚙️  [PORT " + serverPort + "] Processing request...");
+		System.out.println(" Meteor [PORT " + serverPort + "] Processing request...");
 
 		return response;
 	}
