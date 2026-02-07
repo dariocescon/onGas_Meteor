@@ -1,17 +1,20 @@
 package com.aton.proj.oneGasMeteor.decoder.impl;
 
+import java.util.Collections;
+import java.util.List;
+
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
 import com.aton.proj.oneGasMeteor.decoder.DeviceDecoder;
 import com.aton.proj.oneGasMeteor.model.DecodedMessage;
 import com.aton.proj.oneGasMeteor.model.TekMessage;
-import org.springframework.stereotype.Component;
-
-import java.util.Collections;
-import java.util.List;
 
 /**
  * Decoder fallback per device sconosciuti
  */
 @Component
+@Order(999)
 public class UnknownDeviceDecoder implements DeviceDecoder {
     
     @Override

@@ -3,6 +3,7 @@ package com.aton.proj.oneGasMeteor.decoder.impl;
 import java.util.Arrays;
 import java.util.List;
 
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import com.aton.proj.oneGasMeteor.decoder.DeviceDecoder;
@@ -15,6 +16,7 @@ import com.aton.proj.oneGasMeteor.model.TekMessage;
  * Decoder per dispositivi Tekelek famiglia TEK822 e compatibili
  */
 @Component
+@Order(1)
 public class Tek822Decoder implements DeviceDecoder {
     
     private final TekMessageDecoder tekMessageDecoder = new TekMessageDecoder();
