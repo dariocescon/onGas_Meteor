@@ -1,0 +1,95 @@
+graph TB
+    subgraph "🌐 Controller Layer"
+        TELEM_CTRL[TelemetryController<br/>POST /telemetry]
+        ADMIN_CTRL[CleanupAdminController<br/>POST /admin/cleanup/*]
+    end
+    
+    subgraph "⚙️ Service Layer"
+        TELEM_SVC[TelemetryService<br/>processTelemetry]
+        CLEANUP_SVC[DataCleanupService<br/>scheduledCleanup]
+    end
+    
+    subgraph "🔍 Decoder Layer (INBOUND)"
+        DEC_FACTORY[DecoderFactory<br/>Strategy Pattern]
+        TEK_DEC[Tek822Decoder<br/>14 device types]
+        UNK_DEC[UnknownDeviceDecoder<br/>Fallback]
+    end
+    
+    subgraph "🔧 Encoder Layer (OUTBOUND)"
+        ENC_FACTORY[EncoderFactory<br/>Strategy Pattern]
+        TEK_ENC[Tek822Encoder<br/>4 commands]
+        NOOP_ENC[NoOpEncoder<br/>Fallback]
+    end
+    
+    subgraph "💾 Repository Layer"
+        TELEM_REPO_IF[TelemetryRepository<br/>Interface]
+        CMD_REPO_IF[CommandRepository<br/>Interface]
+        
+        subgraph "SQL Server Implementation"
+            SQL_TELEM[SqlServerTelemetryRepository]
+            SQL_CMD[SqlServerCommandRepository]
+            SQL_TELEM_JPA[TelemetryJpaRepository]
+            SQL_CMD_JPA[CommandJpaRepository]
+        end
+        
+        subgraph "MongoDB Implementation (Optional)"
+            MONGO_TELEM[MongoTelemetryRepository]
+            MONGO_CMD[MongoCommandRepository]
+        end
+    end
+    
+    subgraph "🗃️ Entity Layer"
+        TELEM_ENT[TelemetryEntity]
+        CMD_ENT[CommandEntity]
+        TELEM_DOC[TelemetryDocument]
+        CMD_DOC[CommandDocument]
+    end
+    
+    subgraph "📊 Database"
+        SQLSERVER[(SQL Server)]
+        MONGODB[(MongoDB)]
+    end
+    
+    TELEM_CTRL --> TELEM_SVC
+    ADMIN_CTRL --> CLEANUP_SVC
+    
+    TELEM_SVC --> DEC_FACTORY
+    TELEM_SVC --> ENC_FACTORY
+    TELEM_SVC --> TELEM_REPO_IF
+    TELEM_SVC --> CMD_REPO_IF
+    
+    DEC_FACTORY --> TEK_DEC
+    DEC_FACTORY --> UNK_DEC
+    
+    ENC_FACTORY --> TEK_ENC
+    ENC_FACTORY --> NOOP_ENC
+    
+    TELEM_REPO_IF --> SQL_TELEM
+    TELEM_REPO_IF --> MONGO_TELEM
+    CMD_REPO_IF --> SQL_CMD
+    CMD_REPO_IF --> MONGO_CMD
+    
+    SQL_TELEM --> SQL_TELEM_JPA
+    SQL_CMD --> SQL_CMD_JPA
+    
+    SQL_TELEM_JPA --> TELEM_ENT
+    SQL_CMD_JPA --> CMD_ENT
+    MONGO_TELEM --> TELEM_DOC
+    MONGO_CMD --> CMD_DOC
+    
+    TELEM_ENT --> SQLSERVER
+    CMD_ENT --> SQLSERVER
+    TELEM_DOC --> MONGODB
+    CMD_DOC --> MONGODB
+    
+    CLEANUP_SVC --> TELEM_REPO_IF
+    CLEANUP_SVC --> CMD_REPO_IF
+    
+    style TELEM_CTRL fill:#e1f5ff
+    style ADMIN_CTRL fill:#e1f5ff
+    style TELEM_SVC fill:#fff3cd
+    style CLEANUP_SVC fill:#fff3cd
+    style DEC_FACTORY fill:#d4edda
+    style ENC_FACTORY fill:#ffd4d4
+    style SQLSERVER fill:#f8d7da
+    style MONGODB fill:#d4f4dd

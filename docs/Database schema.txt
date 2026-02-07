@@ -1,0 +1,42 @@
+erDiagram
+    TELEMETRY_DATA {
+        bigint id PK
+        nvarchar device_id
+        nvarchar device_type
+        nvarchar raw_message
+        nvarchar decoded_data
+        datetime2 received_at
+        datetime2 processed_at
+        nvarchar imei
+        nvarchar firmware_version
+        float battery_voltage
+        float battery_percentage
+        int signal_strength
+        nvarchar message_type
+        int measurement_count
+    }
+    
+    DEVICE_COMMANDS {
+        bigint id PK
+        nvarchar device_id FK
+        nvarchar device_type
+        nvarchar command_type
+        nvarchar command_params
+        nvarchar status
+        datetime2 created_at
+        datetime2 sent_at
+        datetime2 delivered_at
+        nvarchar error_message
+        int retry_count
+        int max_retries
+    }
+    
+    TELEMETRY_DATA ||--o{ DEVICE_COMMANDS : "device_id"
+    
+    TELEMETRY_DATA }o--|| INDEXES : "idx_device_id"
+    TELEMETRY_DATA }o--|| INDEXES : "idx_device_type"
+    TELEMETRY_DATA }o--|| INDEXES : "idx_received_at"
+    TELEMETRY_DATA }o--|| INDEXES : "idx_imei"
+    
+    DEVICE_COMMANDS }o--|| INDEXES : "idx_device_status"
+    DEVICE_COMMANDS }o--|| INDEXES : "idx_created_at"

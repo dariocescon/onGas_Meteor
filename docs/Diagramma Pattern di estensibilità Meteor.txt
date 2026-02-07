@@ -1,0 +1,73 @@
+classDiagram
+    class DeviceDecoder {
+        <<interface>>
+        +canDecode(payload) boolean
+        +decode(message) DecodedMessage
+        +getSupportedDeviceTypes() List~String~
+        +getDecoderName() String
+    }
+    
+    class DecoderFactory {
+        -List~DeviceDecoder~ decoders
+        -UnknownDeviceDecoder fallback
+        +getDecoder(payload) DeviceDecoder
+    }
+    
+    class Tek822Decoder {
+        @Order(1)
+        +canDecode(payload) boolean
+        +decode(message) DecodedMessage
+        -decodeProductType()
+        -decodeVersions()
+        -decodeImei()
+        -decodeBattery()
+        -decodeMeasurements()
+    }
+    
+    class UnknownDeviceDecoder {
+        @Order(999)
+        +canDecode(payload) boolean
+        +decode(message) DecodedMessage
+    }
+    
+    class DeviceEncoder {
+        <<interface>>
+        +canEncode(deviceType) boolean
+        +encode(commands) List~EncodedCommand~
+        +getSupportedDeviceTypes() List~String~
+        +getEncoderName() String
+    }
+    
+    class EncoderFactory {
+        -List~DeviceEncoder~ encoders
+        -NoOpEncoder fallback
+        +getEncoder(deviceType) DeviceEncoder
+    }
+    
+    class Tek822Encoder {
+        @Order(1)
+        +canEncode(deviceType) boolean
+        +encode(commands) List~EncodedCommand~
+        -encodeSetInterval()
+        -encodeReboot()
+        -encodeRequestStatus()
+        -encodeSetAlarmThreshold()
+    }
+    
+    class NoOpEncoder {
+        @Order(999)
+        +canEncode(deviceType) boolean
+        +encode(commands) List~EncodedCommand~
+    }
+    
+    DeviceDecoder <|.. Tek822Decoder
+    DeviceDecoder <|.. UnknownDeviceDecoder
+    DecoderFactory o-- DeviceDecoder
+    
+    DeviceEncoder <|.. Tek822Encoder
+    DeviceEncoder <|.. NoOpEncoder
+    EncoderFactory o-- DeviceEncoder
+    
+    note for Tek822Decoder "Supporta 14 device types:\nTEK586, TEK733, TEK822V1,\nTEK822V2, TEK900, etc."
+    
+    note for Tek822Encoder "Supporta 4 comandi:\nSET_INTERVAL, REBOOT,\nREQUEST_STATUS,\nSET_ALARM_THRESHOLD"
