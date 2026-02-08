@@ -154,6 +154,6 @@ public class TelemetryController {
     public ResponseEntity<TelemetryResponse> ping() {
         TelemetryResponse response = new TelemetryResponse("OK", "Pong from port " + serverPort);
         response.setReceivedAt(LocalDateTime.now());
-        return ResponseEntity.ok(response);
-    }
+		return ResponseEntity.ok(response);
+	}
 }
