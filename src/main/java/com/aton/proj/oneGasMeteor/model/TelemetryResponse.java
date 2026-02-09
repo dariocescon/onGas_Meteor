@@ -1,12 +1,15 @@
 package com.aton.proj.oneGasMeteor.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Risposta HTTP al device dopo elaborazione
+ * Response model per endpoint telemetria
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class TelemetryResponse {
 
 	private String status;
@@ -14,24 +17,32 @@ public class TelemetryResponse {
 	private String deviceType;
 	private LocalDateTime receivedAt;
 	private LocalDateTime processedAt;
-	private List<EncodedCommand> commands = new ArrayList<>();
+
+	// Array di comandi (per backward compatibility e debug)
+	private List<EncodedCommand> commands;
+
+	// ✅ NUOVO: Comandi concatenati in formato TEK822
+	private String concatenatedCommandsHex; // Formato HEX
+	private String concatenatedCommandsAscii; // Formato ASCII leggibile
+
 	private String message;
 
 	public TelemetryResponse() {
+		this.commands = new ArrayList<>();
 	}
 
 	public TelemetryResponse(String status, String message) {
 		this.status = status;
 		this.message = message;
-		this.processedAt = LocalDateTime.now();
+		this.commands = new ArrayList<>();
 	}
 
+	// Factory methods
 	public static TelemetryResponse success(String deviceId, String deviceType) {
 		TelemetryResponse response = new TelemetryResponse();
 		response.setStatus("OK");
 		response.setDeviceId(deviceId);
 		response.setDeviceType(deviceType);
-		response.setProcessedAt(LocalDateTime.now());
 		return response;
 	}
 
@@ -88,8 +99,20 @@ public class TelemetryResponse {
 		this.commands = commands;
 	}
 
-	public void addCommand(EncodedCommand command) {
-		this.commands.add(command);
+	public String getConcatenatedCommandsHex() {
+		return concatenatedCommandsHex;
+	}
+
+	public void setConcatenatedCommandsHex(String concatenatedCommandsHex) {
+		this.concatenatedCommandsHex = concatenatedCommandsHex;
+	}
+
+	public String getConcatenatedCommandsAscii() {
+		return concatenatedCommandsAscii;
+	}
+
+	public void setConcatenatedCommandsAscii(String concatenatedCommandsAscii) {
+		this.concatenatedCommandsAscii = concatenatedCommandsAscii;
 	}
 
 	public String getMessage() {
@@ -101,12 +124,12 @@ public class TelemetryResponse {
 	}
 
 	/**
-	 * Comando codificato da inviare al device
+	 * Nested class per comandi codificati
 	 */
 	public static class EncodedCommand {
 		private Long commandId;
 		private String commandType;
-		private String encodedData; // Hex string
+		private String encodedData;
 
 		public EncodedCommand() {
 		}

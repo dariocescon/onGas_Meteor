@@ -1,28 +1,21 @@
 package com.aton.proj.oneGasMeteor.controller;
 
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 import com.aton.proj.oneGasMeteor.controller.utils.ControllerUtils;
 import com.aton.proj.oneGasMeteor.exception.DecodingException;
 import com.aton.proj.oneGasMeteor.exception.UnknownDeviceException;
 import com.aton.proj.oneGasMeteor.model.RawTelemetryRequest;
 import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
 import com.aton.proj.oneGasMeteor.service.TelemetryService;
-
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 /**
  * Controller REST per ricevere messaggi di telemetria dai dispositivi
@@ -47,6 +40,8 @@ public class TelemetryController {
 	 * 
 	 * POST /telemetry Content-Type: text/plain Body:
 	 * 080181048614750861075021004551047B00019700000082010F0A5B28770A5B...
+	 * 
+	 * Response: JSON con comandi concatenati nel campo commands[]
 	 */
 	@PostMapping(consumes = MediaType.TEXT_PLAIN_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<TelemetryResponse> receiveTelemetryPlainText(@RequestBody String hexMessage) {
@@ -70,6 +65,12 @@ public class TelemetryController {
 			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
 					response.getDeviceId(), response.getDeviceType());
 
+			// Log dei comandi se presenti
+			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
+				String concatenatedAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
+				log.info("   📤 Sending {} commands: {}", response.getCommands().size(), concatenatedAscii);
+			}
+
 			return ResponseEntity.ok(response);
 
 		} catch (UnknownDeviceException e) {
@@ -90,43 +91,14 @@ public class TelemetryController {
 	}
 
 	/**
-	 * Endpoint alternativo per ricevere messaggi in formato JSON
+	 * Endpoint per device che inviano/ricevono dati binari puri (byte array)
 	 * 
-	 * POST /telemetry/json Content-Type: application/json Body: { "hexMessage":
-	 * "080181048614750861...", "deviceId": "optional" }
+	 * POST /telemetry/octet Content-Type: application/octet-stream Accept:
+	 * application/octet-stream
+	 * 
+	 * Request Body: byte array (messaggio telemetria in binario) Response Body:
+	 * byte array (comandi concatenati in formato: TEK822,cmd1,cmd2,...)
 	 */
-	@PostMapping(value = "/json", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<TelemetryResponse> receiveTelemetryJson(@Valid @RequestBody RawTelemetryRequest request) {
-
-		log.info("🚀 [PORT {}] Received telemetry message (JSON): deviceId={}, {} bytes", serverPort,
-				request.getDeviceId(), request.getHexMessage() != null ? request.getHexMessage().length() / 2 : 0);
-
-		try {
-			// Processa il messaggio
-			TelemetryResponse response = telemetryService.processTelemetry(request.getHexMessage());
-
-			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
-					response.getDeviceId(), response.getDeviceType());
-
-			return ResponseEntity.ok(response);
-
-		} catch (UnknownDeviceException e) {
-			log.error("❌ [PORT {}] Unknown device: {}", serverPort, e.getMessage());
-			return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
-					.body(TelemetryResponse.error("Unknown device type: " + e.getDeviceType()));
-
-		} catch (DecodingException e) {
-			log.error("❌ [PORT {}] Decoding error: {}", serverPort, e.getMessage(), e);
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-					.body(TelemetryResponse.error("Failed to decode message: " + e.getMessage()));
-
-		} catch (Exception e) {
-			log.error("❌ [PORT {}] Unexpected error processing telemetry", serverPort, e);
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body(TelemetryResponse.error("Internal server error: " + e.getMessage()));
-		}
-	}
-
 	@PostMapping(value = "/octet", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE, produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
 	public ResponseEntity<byte[]> receiveTelemetryOctetStreamBinary(@RequestBody byte[] rawBytes) {
 
@@ -159,7 +131,8 @@ public class TelemetryController {
 				byte[] commandsBytes = ControllerUtils.concatenateCommands(response.getCommands());
 
 				log.info("   📦 Sending {} bytes of commands to device", commandsBytes.length);
-				log.debug("   📝 Commands ASCII: {}", new String(commandsBytes, StandardCharsets.US_ASCII));
+				log.debug("   📝 Commands ASCII: {}",
+						new String(commandsBytes, java.nio.charset.StandardCharsets.US_ASCII));
 
 				return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(commandsBytes);
 			}
@@ -184,10 +157,58 @@ public class TelemetryController {
 	}
 
 	/**
-	 * Endpoint per device che si aspettano risposta in HEX RAW
+	 * Endpoint alternativo per ricevere messaggi in formato JSON
 	 * 
-	 * POST /telemetry/raw Content-Type: text/plain Response: text/plain (HEX string
-	 * dei comandi)
+	 * POST /telemetry/json Content-Type: application/json Body: { "hexMessage":
+	 * "080181048614750861...", "deviceId": "optional" }
+	 * 
+	 * Response: JSON con comandi concatenati
+	 */
+	@PostMapping(value = "/json", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<TelemetryResponse> receiveTelemetryJson(@Valid @RequestBody RawTelemetryRequest request) {
+
+		log.info("🚀 [PORT {}] Received telemetry message (JSON): deviceId={}, {} bytes", serverPort,
+				request.getDeviceId(), request.getHexMessage() != null ? request.getHexMessage().length() / 2 : 0);
+
+		try {
+			// Processa il messaggio
+			TelemetryResponse response = telemetryService.processTelemetry(request.getHexMessage());
+
+			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
+					response.getDeviceId(), response.getDeviceType());
+
+			// Log dei comandi se presenti
+			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
+				String concatenatedAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
+				log.info("   📤 Sending {} commands: {}", response.getCommands().size(), concatenatedAscii);
+			}
+
+			return ResponseEntity.ok(response);
+
+		} catch (UnknownDeviceException e) {
+			log.error("❌ [PORT {}] Unknown device: {}", serverPort, e.getMessage());
+			return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+					.body(TelemetryResponse.error("Unknown device type: " + e.getDeviceType()));
+
+		} catch (DecodingException e) {
+			log.error("❌ [PORT {}] Decoding error: {}", serverPort, e.getMessage(), e);
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+					.body(TelemetryResponse.error("Failed to decode message: " + e.getMessage()));
+
+		} catch (Exception e) {
+			log.error("❌ [PORT {}] Unexpected error processing telemetry", serverPort, e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(TelemetryResponse.error("Internal server error: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * Endpoint per device che si aspettano risposta in formato HEX text/plain
+	 * invece di JSON
+	 * 
+	 * POST /telemetry/raw Content-Type: text/plain Accept: text/plain
+	 * 
+	 * Request Body: hex string Response Body: hex string dei comandi concatenati
 	 */
 	@PostMapping(value = "/raw", consumes = MediaType.TEXT_PLAIN_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
 	public ResponseEntity<String> receiveTelemetryRaw(@RequestBody String hexMessage) {
@@ -195,20 +216,28 @@ public class TelemetryController {
 		log.info("🚀 [PORT {}] Received telemetry message (raw mode): {} bytes", serverPort, hexMessage.length() / 2);
 
 		try {
+			// Valida e pulisci
+			String cleanHex = hexMessage.trim().replaceAll("\\s+", "");
+
 			// Processa telemetria
-			TelemetryResponse response = telemetryService.processTelemetry(hexMessage);
+			TelemetryResponse response = telemetryService.processTelemetry(cleanHex);
 
-			// Se ci sono comandi, ritorna solo l'HEX del primo comando
+			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
+					response.getDeviceId(), response.getDeviceType());
+
+			// Se ci sono comandi, ritorna l'HEX concatenato
 			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
-				String commandHex = response.getCommands().get(0).getEncodedData();
+				String commandsHex = ControllerUtils.commandsToHexString(response.getCommands());
+				String commandsAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
 
-				log.info("✅ [PORT {}] Sending command to device: {}", serverPort, commandHex);
+				log.info("   📤 Sending {} commands: {}", response.getCommands().size(), commandsAscii);
+				log.debug("   📤 Commands HEX: {}", commandsHex);
 
-				return ResponseEntity.ok(commandHex);
+				return ResponseEntity.ok(commandsHex);
 			}
 
 			// Nessun comando, risposta vuota
-			log.info("✅ [PORT {}] No commands for device: {}", serverPort, response.getDeviceId());
+			log.info("   ℹ️  No commands for device");
 			return ResponseEntity.ok("");
 
 		} catch (Exception e) {
