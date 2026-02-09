@@ -57,7 +57,7 @@ public class TelemetryService {
 		this.messageTypeParser = messageTypeParser;
 		this.objectMapper = objectMapper;
 
-		log.info("✅ TelemetryService initialized");
+		log.info("TelemetryService initialized");
 	}
 
 	/**
@@ -69,7 +69,7 @@ public class TelemetryService {
 	public TelemetryResponse processTelemetry(String hexMessage) {
 
 		LocalDateTime receivedAt = LocalDateTime.now();
-		log.info("📥 Processing telemetry message: {} chars", hexMessage.length());
+		log.info("Processing telemetry message: {} chars", hexMessage.length());
 
 		try {
 			// 1. CONVERTI HEX STRING → BYTE ARRAY
@@ -89,41 +89,41 @@ public class TelemetryService {
 			String deviceType = decoded.getUnitInfo().getProductType();
 			int messageType = extractMessageType(payload);
 
-			log.info("   ✅ Decoded: deviceType={}, deviceId={}, messageType={}", deviceType, deviceId, messageType);
+			log.info("  Decoded: deviceType={}, deviceId={}, messageType={}", deviceType, deviceId, messageType);
 
 			// 5. GESTISCI IN BASE AL MESSAGE TYPE
 			switch (messageType) {
 			case 4, 8, 9 -> {
 				// Standard telemetry - salva nel DB
 				TelemetryEntity savedEntity = telemetryRepository.save(deviceId, deviceType, hexMessage, decoded);
-				log.info("   💾 Saved to database: id={}", savedEntity.getId());
+				log.info("  Saved to database: id={}", savedEntity.getId());
 			}
 			case 6 -> {
 				// Settings response - parse e log
 				String settingsPayload = extractPayloadAfterHeader(hexMessage);
 				MessageType6Response settings = messageTypeParser.parseMessageType6(settingsPayload, deviceId,
 						deviceType);
-				log.info("   ⚙️  Received settings: {} parameters", settings.getSettings().size());
+				log.info("  Received settings: {} parameters", settings.getSettings().size());
 				// TODO: Opzionalmente salva in una tabella device_settings
 			}
 			case 16 -> {
 				// ICCID & Statistics - parse e log
 				String statsPayload = extractPayloadAfterHeader(hexMessage);
 				MessageType16Response stats = messageTypeParser.parseMessageType16(statsPayload, deviceId, deviceType);
-				log.info("   📊 Received statistics: ICCID={}, Energy={}mAh", stats.getIccid(), stats.getEnergyUsed());
+				log.info("  Received statistics: ICCID={}, Energy={}mAh", stats.getIccid(), stats.getEnergyUsed());
 				// TODO: Opzionalmente salva in una tabella device_statistics
 			}
 			case 17 -> {
 				// GPS data - parse e log
 				String gpsPayload = extractPayloadAfterHeader(hexMessage);
 				MessageType17Response gps = messageTypeParser.parseMessageType17(gpsPayload, deviceId, deviceType);
-				log.info("   📍 Received GPS: lat={}, lon={}, alt={}m", gps.getLatitude(), gps.getLongitude(),
+				log.info("  Received GPS: lat={}, lon={}, alt={}m", gps.getLatitude(), gps.getLongitude(),
 						gps.getAltitude());
-				log.info("   🗺️  Google Maps: {}", gps.getGoogleMapsLink());
+				log.info("  Google Maps: {}", gps.getGoogleMapsLink());
 				// TODO: Opzionalmente salva in una tabella device_locations
 			}
 			default -> {
-				log.warn("   ⚠️  Unknown message type: {}", messageType);
+				log.warn("  Unknown message type: {}", messageType);
 			}
 			}
 

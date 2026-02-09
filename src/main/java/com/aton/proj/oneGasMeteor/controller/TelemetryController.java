@@ -183,37 +183,37 @@ public class TelemetryController {
 	@PostMapping(value = "/raw", consumes = MediaType.TEXT_PLAIN_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
 	public ResponseEntity<String> receiveTelemetryRaw(@RequestBody String hexMessage) {
 
-		log.info("🚀 [PORT {}] Received telemetry message (raw mode): {} bytes", serverPort, hexMessage.length() / 2);
+		log.info("[PORT {}] Received telemetry message (raw mode): {} bytes", serverPort, hexMessage.length() / 2);
 
 		try {
 			String cleanHex = hexMessage.trim().replaceAll("\\s+", "");
 
 			TelemetryResponse response = telemetryService.processTelemetry(cleanHex);
 
-			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
+			log.info("[PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
 					response.getDeviceId(), response.getDeviceType());
 
 			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
 				String commandsHex = ControllerUtils.commandsToHexString(response.getCommands());
 				String commandsAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
 
-				log.info("   📤 Sending {} commands: {}", response.getCommands().size(), commandsAscii);
-				log.debug("   📤 Commands HEX: {}", commandsHex);
+				log.info("  Sending {} commands: {}", response.getCommands().size(), commandsAscii);
+				log.debug("  Commands HEX: {}", commandsHex);
 
 				return ResponseEntity.ok(commandsHex);
 			}
 
-			log.info("   ℹ️  No commands for device");
+			log.info("  No commands for device");
 			return ResponseEntity.ok("");
 
 		} catch (Exception e) {
-			log.error("❌ [PORT {}] Error processing telemetry", serverPort, e);
+			log.error("[PORT {}] Error processing telemetry", serverPort, e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("");
 		}
 	}
 
 	/**
-	 * ✅ METODO HELPER: Arricchisce la risposta con comandi concatenati
+	 * METODO HELPER: Arricchisce la risposta con comandi concatenati
 	 */
 	private void enrichResponseWithConcatenatedCommands(TelemetryResponse response) {
 		if (response.getCommands() != null && !response.getCommands().isEmpty()) {
@@ -226,8 +226,8 @@ public class TelemetryController {
 			String concatenatedAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
 			response.setConcatenatedCommandsAscii(concatenatedAscii);
 
-			log.info("   📤 Sending {} commands: {}", response.getCommands().size(), concatenatedAscii);
-			log.debug("   📤 Commands HEX: {}", concatenatedHex);
+			log.info("  Sending {} commands: {}", response.getCommands().size(), concatenatedAscii);
+			log.debug("  Commands HEX: {}", concatenatedHex);
 		}
 	}
 
