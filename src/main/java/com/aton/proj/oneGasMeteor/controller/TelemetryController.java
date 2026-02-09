@@ -38,10 +38,9 @@ public class TelemetryController {
 	/**
 	 * Endpoint principale per ricevere messaggi hex string dal device
 	 * 
-	 * POST /telemetry Content-Type: text/plain Body:
-	 * 080181048614750861075021004551047B00019700000082010F0A5B28770A5B...
+	 * POST /telemetry Content-Type: text/plain
 	 * 
-	 * Response: JSON con comandi concatenati nel campo commands[]
+	 * Response: JSON con comandi concatenati
 	 */
 	@PostMapping(consumes = MediaType.TEXT_PLAIN_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<TelemetryResponse> receiveTelemetryPlainText(@RequestBody String hexMessage) {
@@ -62,14 +61,11 @@ public class TelemetryController {
 			// Processa il messaggio
 			TelemetryResponse response = telemetryService.processTelemetry(cleanHex);
 
+			// ✅ AGGIUNGI COMANDI CONCATENATI
+			enrichResponseWithConcatenatedCommands(response);
+
 			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
 					response.getDeviceId(), response.getDeviceType());
-
-			// Log dei comandi se presenti
-			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
-				String concatenatedAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
-				log.info("   📤 Sending {} commands: {}", response.getCommands().size(), concatenatedAscii);
-			}
 
 			return ResponseEntity.ok(response);
 
@@ -91,13 +87,7 @@ public class TelemetryController {
 	}
 
 	/**
-	 * Endpoint per device che inviano/ricevono dati binari puri (byte array)
-	 * 
-	 * POST /telemetry/octet Content-Type: application/octet-stream Accept:
-	 * application/octet-stream
-	 * 
-	 * Request Body: byte array (messaggio telemetria in binario) Response Body:
-	 * byte array (comandi concatenati in formato: TEK822,cmd1,cmd2,...)
+	 * Endpoint per device che inviano/ricevono dati binari puri
 	 */
 	@PostMapping(value = "/octet", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE, produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
 	public ResponseEntity<byte[]> receiveTelemetryOctetStreamBinary(@RequestBody byte[] rawBytes) {
@@ -106,28 +96,23 @@ public class TelemetryController {
 				rawBytes != null ? rawBytes.length : 0);
 
 		try {
-			// Valida che non sia vuoto
 			if (rawBytes == null || rawBytes.length == 0) {
 				log.warn("⚠️  Empty byte array received");
 				return ResponseEntity.badRequest().body(new byte[0]);
 			}
 
-			// Converti byte array in hex string per il processing interno
 			String hexMessage = ControllerUtils.bytesToHex(rawBytes);
 			log.debug("   Converted {} bytes to hex string: {} chars", rawBytes.length, hexMessage.length());
 
-			// Processa il messaggio usando TelemetryService
 			TelemetryResponse response = telemetryService.processTelemetry(hexMessage);
 
 			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
 					response.getDeviceId(), response.getDeviceType());
 
-			// Se ci sono comandi, concatenali in formato corretto
 			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
 
 				log.info("   📤 Preparing {} commands for binary response", response.getCommands().size());
 
-				// Concatena i comandi nel formato: TEK822,cmd1,cmd2,cmd3
 				byte[] commandsBytes = ControllerUtils.concatenateCommands(response.getCommands());
 
 				log.info("   📦 Sending {} bytes of commands to device", commandsBytes.length);
@@ -137,7 +122,6 @@ public class TelemetryController {
 				return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(commandsBytes);
 			}
 
-			// Nessun comando: risposta vuota
 			log.info("   ℹ️  No commands for device, sending empty response");
 
 			return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(new byte[0]);
@@ -158,11 +142,6 @@ public class TelemetryController {
 
 	/**
 	 * Endpoint alternativo per ricevere messaggi in formato JSON
-	 * 
-	 * POST /telemetry/json Content-Type: application/json Body: { "hexMessage":
-	 * "080181048614750861...", "deviceId": "optional" }
-	 * 
-	 * Response: JSON con comandi concatenati
 	 */
 	@PostMapping(value = "/json", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<TelemetryResponse> receiveTelemetryJson(@Valid @RequestBody RawTelemetryRequest request) {
@@ -171,17 +150,13 @@ public class TelemetryController {
 				request.getDeviceId(), request.getHexMessage() != null ? request.getHexMessage().length() / 2 : 0);
 
 		try {
-			// Processa il messaggio
 			TelemetryResponse response = telemetryService.processTelemetry(request.getHexMessage());
+
+			// ✅ AGGIUNGI COMANDI CONCATENATI
+			enrichResponseWithConcatenatedCommands(response);
 
 			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
 					response.getDeviceId(), response.getDeviceType());
-
-			// Log dei comandi se presenti
-			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
-				String concatenatedAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
-				log.info("   📤 Sending {} commands: {}", response.getCommands().size(), concatenatedAscii);
-			}
 
 			return ResponseEntity.ok(response);
 
@@ -204,11 +179,6 @@ public class TelemetryController {
 
 	/**
 	 * Endpoint per device che si aspettano risposta in formato HEX text/plain
-	 * invece di JSON
-	 * 
-	 * POST /telemetry/raw Content-Type: text/plain Accept: text/plain
-	 * 
-	 * Request Body: hex string Response Body: hex string dei comandi concatenati
 	 */
 	@PostMapping(value = "/raw", consumes = MediaType.TEXT_PLAIN_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
 	public ResponseEntity<String> receiveTelemetryRaw(@RequestBody String hexMessage) {
@@ -216,16 +186,13 @@ public class TelemetryController {
 		log.info("🚀 [PORT {}] Received telemetry message (raw mode): {} bytes", serverPort, hexMessage.length() / 2);
 
 		try {
-			// Valida e pulisci
 			String cleanHex = hexMessage.trim().replaceAll("\\s+", "");
 
-			// Processa telemetria
 			TelemetryResponse response = telemetryService.processTelemetry(cleanHex);
 
 			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
 					response.getDeviceId(), response.getDeviceType());
 
-			// Se ci sono comandi, ritorna l'HEX concatenato
 			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
 				String commandsHex = ControllerUtils.commandsToHexString(response.getCommands());
 				String commandsAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
@@ -236,13 +203,31 @@ public class TelemetryController {
 				return ResponseEntity.ok(commandsHex);
 			}
 
-			// Nessun comando, risposta vuota
 			log.info("   ℹ️  No commands for device");
 			return ResponseEntity.ok("");
 
 		} catch (Exception e) {
 			log.error("❌ [PORT {}] Error processing telemetry", serverPort, e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("");
+		}
+	}
+
+	/**
+	 * ✅ METODO HELPER: Arricchisce la risposta con comandi concatenati
+	 */
+	private void enrichResponseWithConcatenatedCommands(TelemetryResponse response) {
+		if (response.getCommands() != null && !response.getCommands().isEmpty()) {
+
+			// Genera comandi concatenati in HEX
+			String concatenatedHex = ControllerUtils.commandsToHexString(response.getCommands());
+			response.setConcatenatedCommandsHex(concatenatedHex);
+
+			// Genera comandi concatenati in ASCII (per leggibilità)
+			String concatenatedAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
+			response.setConcatenatedCommandsAscii(concatenatedAscii);
+
+			log.info("   📤 Sending {} commands: {}", response.getCommands().size(), concatenatedAscii);
+			log.debug("   📤 Commands HEX: {}", concatenatedHex);
 		}
 	}
 
