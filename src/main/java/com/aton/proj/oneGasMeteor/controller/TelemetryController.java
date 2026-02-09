@@ -1,5 +1,6 @@
 package com.aton.proj.oneGasMeteor.controller;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 
 import org.slf4j.Logger;
@@ -126,18 +127,6 @@ public class TelemetryController {
 		}
 	}
 
-	/**
-	 * Endpoint per device che inviano/ricevono dati binari puri (byte array)
-	 * 
-	 * POST /telemetry/octet Content-Type: application/octet-stream Accept:
-	 * application/octet-stream
-	 * 
-	 * Request Body: byte array (messaggio telemetria in binario) Response Body:
-	 * byte array (comandi concatenati in binario)
-	 * 
-	 * Questo è il metodo più efficiente per dispositivi embedded che lavorano
-	 * direttamente con byte array senza conversione hex/JSON.
-	 */
 	@PostMapping(value = "/octet", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE, produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
 	public ResponseEntity<byte[]> receiveTelemetryOctetStreamBinary(@RequestBody byte[] rawBytes) {
 
@@ -161,15 +150,16 @@ public class TelemetryController {
 			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
 					response.getDeviceId(), response.getDeviceType());
 
-			// Se ci sono comandi, converti gli hex string in byte array
+			// Se ci sono comandi, concatenali in formato corretto
 			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
 
 				log.info("   📤 Preparing {} commands for binary response", response.getCommands().size());
 
-				// Concatena tutti i comandi in un unico byte array
+				// Concatena i comandi nel formato: TEK822,cmd1,cmd2,cmd3
 				byte[] commandsBytes = ControllerUtils.concatenateCommands(response.getCommands());
 
 				log.info("   📦 Sending {} bytes of commands to device", commandsBytes.length);
+				log.debug("   📝 Commands ASCII: {}", new String(commandsBytes, StandardCharsets.US_ASCII));
 
 				return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(commandsBytes);
 			}

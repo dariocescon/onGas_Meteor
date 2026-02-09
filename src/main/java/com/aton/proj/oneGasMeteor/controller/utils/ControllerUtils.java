@@ -73,29 +73,27 @@ public class ControllerUtils {
 
 		return result;
 	}
-	
+
 	/**
 	 * Rimuove la password da un comando
 	 * 
-	 * Input:  "TEK822,S0=80"
-	 * Output: "S0=80"
+	 * Input: "TEK822,S0=80" Output: "S0=80"
 	 * 
-	 * Input:  "TEK822,R3=ACTIVE"
-	 * Output: "R3=ACTIVE"
+	 * Input: "TEK822,R3=ACTIVE" Output: "R3=ACTIVE"
 	 */
 	public static String removePassword(String asciiCommand) {
-	    // Trova la prima virgola
-	    int commaIndex = asciiCommand.indexOf(',');
-	    
-	    if (commaIndex != -1 && commaIndex < asciiCommand.length() - 1) {
-	        // Ritorna tutto dopo la virgola
-	        return asciiCommand.substring(commaIndex + 1);
-	    }
-	    
-	    // Nessuna virgola trovata, ritorna il comando così com'è
-	    return asciiCommand;
+		// Trova la prima virgola
+		int commaIndex = asciiCommand.indexOf(',');
+
+		if (commaIndex != -1 && commaIndex < asciiCommand.length() - 1) {
+			// Ritorna tutto dopo la virgola
+			return asciiCommand.substring(commaIndex + 1);
+		}
+
+		// Nessuna virgola trovata, ritorna il comando così com'è
+		return asciiCommand;
 	}
-	
+
 	/**
 	 * Converte byte array in hex string
 	 */
@@ -106,23 +104,23 @@ public class ControllerUtils {
 		}
 		return hexString.toString();
 	}
-	
+
 	/**
 	 * Converte hex string in ASCII string
 	 */
 	public static String hexToAscii(String hexString) {
-	    if (hexString == null || hexString.isEmpty()) {
-	        return "";
-	    }
-	    
-	    StringBuilder ascii = new StringBuilder();
-	    for (int i = 0; i < hexString.length(); i += 2) {
-	        String hex = hexString.substring(i, Math.min(i + 2, hexString.length()));
-	        int decimal = Integer.parseInt(hex, 16);
-	        ascii.append((char) decimal);
-	    }
-	    
-	    return ascii.toString();
+		if (hexString == null || hexString.isEmpty()) {
+			return "";
+		}
+
+		StringBuilder ascii = new StringBuilder();
+		for (int i = 0; i < hexString.length(); i += 2) {
+			String hex = hexString.substring(i, Math.min(i + 2, hexString.length()));
+			int decimal = Integer.parseInt(hex, 16);
+			ascii.append((char) decimal);
+		}
+
+		return ascii.toString();
 	}
 
 	/**
