@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.aton.proj.oneGasMeteor.controller.utils.ControllerUtils;
 import com.aton.proj.oneGasMeteor.exception.DecodingException;
 import com.aton.proj.oneGasMeteor.exception.UnknownDeviceException;
 import com.aton.proj.oneGasMeteor.model.RawTelemetryRequest;
@@ -126,14 +127,104 @@ public class TelemetryController {
 	}
 
 	/**
-	 * Converte byte array in hex string
+	 * Endpoint per device che inviano/ricevono dati binari puri (byte array)
+	 * 
+	 * POST /telemetry/octet Content-Type: application/octet-stream Accept:
+	 * application/octet-stream
+	 * 
+	 * Request Body: byte array (messaggio telemetria in binario) Response Body:
+	 * byte array (comandi concatenati in binario)
+	 * 
+	 * Questo è il metodo più efficiente per dispositivi embedded che lavorano
+	 * direttamente con byte array senza conversione hex/JSON.
 	 */
-	private String bytesToHex(byte[] bytes) {
-		StringBuilder hexString = new StringBuilder();
-		for (byte b : bytes) {
-			hexString.append(String.format("%02X", b));
+	@PostMapping(value = "/octet", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE, produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+	public ResponseEntity<byte[]> receiveTelemetryOctetStreamBinary(@RequestBody byte[] rawBytes) {
+
+		log.info("🚀 [PORT {}] Received telemetry message (octet-stream binary): {} bytes", serverPort,
+				rawBytes != null ? rawBytes.length : 0);
+
+		try {
+			// Valida che non sia vuoto
+			if (rawBytes == null || rawBytes.length == 0) {
+				log.warn("⚠️  Empty byte array received");
+				return ResponseEntity.badRequest().body(new byte[0]);
+			}
+
+			// Converti byte array in hex string per il processing interno
+			String hexMessage = ControllerUtils.bytesToHex(rawBytes);
+			log.debug("   Converted {} bytes to hex string: {} chars", rawBytes.length, hexMessage.length());
+
+			// Processa il messaggio usando TelemetryService
+			TelemetryResponse response = telemetryService.processTelemetry(hexMessage);
+
+			log.info("✅ [PORT {}] Telemetry processed successfully for device: {} (type: {})", serverPort,
+					response.getDeviceId(), response.getDeviceType());
+
+			// Se ci sono comandi, converti gli hex string in byte array
+			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
+
+				log.info("   📤 Preparing {} commands for binary response", response.getCommands().size());
+
+				// Concatena tutti i comandi in un unico byte array
+				byte[] commandsBytes = ControllerUtils.concatenateCommands(response.getCommands());
+
+				log.info("   📦 Sending {} bytes of commands to device", commandsBytes.length);
+
+				return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(commandsBytes);
+			}
+
+			// Nessun comando: risposta vuota
+			log.info("   ℹ️  No commands for device, sending empty response");
+
+			return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(new byte[0]);
+
+		} catch (UnknownDeviceException e) {
+			log.error("❌ [PORT {}] Unknown device: {}", serverPort, e.getMessage());
+			return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(new byte[0]);
+
+		} catch (DecodingException e) {
+			log.error("❌ [PORT {}] Decoding error: {}", serverPort, e.getMessage(), e);
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new byte[0]);
+
+		} catch (Exception e) {
+			log.error("❌ [PORT {}] Unexpected error processing telemetry", serverPort, e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new byte[0]);
 		}
-		return hexString.toString();
+	}
+
+	/**
+	 * Endpoint per device che si aspettano risposta in HEX RAW
+	 * 
+	 * POST /telemetry/raw Content-Type: text/plain Response: text/plain (HEX string
+	 * dei comandi)
+	 */
+	@PostMapping(value = "/raw", consumes = MediaType.TEXT_PLAIN_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
+	public ResponseEntity<String> receiveTelemetryRaw(@RequestBody String hexMessage) {
+
+		log.info("🚀 [PORT {}] Received telemetry message (raw mode): {} bytes", serverPort, hexMessage.length() / 2);
+
+		try {
+			// Processa telemetria
+			TelemetryResponse response = telemetryService.processTelemetry(hexMessage);
+
+			// Se ci sono comandi, ritorna solo l'HEX del primo comando
+			if (response.getCommands() != null && !response.getCommands().isEmpty()) {
+				String commandHex = response.getCommands().get(0).getEncodedData();
+
+				log.info("✅ [PORT {}] Sending command to device: {}", serverPort, commandHex);
+
+				return ResponseEntity.ok(commandHex);
+			}
+
+			// Nessun comando, risposta vuota
+			log.info("✅ [PORT {}] No commands for device: {}", serverPort, response.getDeviceId());
+			return ResponseEntity.ok("");
+
+		} catch (Exception e) {
+			log.error("❌ [PORT {}] Error processing telemetry", serverPort, e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("");
+		}
 	}
 
 	/**
