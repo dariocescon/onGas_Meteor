@@ -1,5 +1,6 @@
 package com.aton.proj.oneGasMeteor.controller.utils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,6 +12,89 @@ import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
 public class ControllerUtils {
 
 	private static final Logger log = LoggerFactory.getLogger(ControllerUtils.class);
+
+	/**
+	 * Concatena tutti i comandi in un'unica stringa ASCII separata da virgole Poi
+	 * converte in byte array
+	 * 
+	 * Format: <password>,<cmd1>,<cmd2>,<cmd3>
+	 * 
+	 * Example: Command1 = SET_INTERVAL (S0=80) Command2 = REBOOT (R3=ACTIVE)
+	 * 
+	 * Result ASCII: TEK822,S0=80,R3=ACTIVE Result Hex:
+	 * 54454B3832322C53303D38302C52333D414354495645 Result Bytes: [0x54, 0x45, 0x4B,
+	 * 0x38, 0x32, 0x32, 0x2C, ...]
+	 */
+	public static byte[] concatenateCommands(List<TelemetryResponse.EncodedCommand> commands) {
+
+		if (commands == null || commands.isEmpty()) {
+			return new byte[0];
+		}
+
+		// Tutti i comandi sono già in formato HEX con password inclusa
+		// Esempio: "54454B3832322C53303D3830" = "TEK822,S0=80"
+
+		// Dobbiamo:
+		// 1. Convertire ogni comando da HEX ad ASCII
+		// 2. Rimuovere il password duplicato (tutti tranne il primo)
+		// 3. Concatenare con virgola
+		// 4. Riconvertire in HEX/byte array
+
+		List<String> asciiCommands = new ArrayList<>();
+
+		for (int i = 0; i < commands.size(); i++) {
+			TelemetryResponse.EncodedCommand cmd = commands.get(i);
+
+			// Converti HEX → ASCII
+			String asciiCmd = hexToAscii(cmd.getEncodedData());
+
+			log.debug("   Command {}: {} → ASCII: {}", cmd.getCommandId(), cmd.getCommandType(), asciiCmd);
+
+			if (i == 0) {
+				// Primo comando: mantieni password
+				asciiCommands.add(asciiCmd);
+			} else {
+				// Comandi successivi: rimuovi password
+				// "TEK822,S0=80" → "S0=80"
+				String cmdWithoutPassword = removePassword(asciiCmd);
+				asciiCommands.add(cmdWithoutPassword);
+			}
+		}
+
+		// Concatena con virgola
+		String concatenated = String.join(",", asciiCommands);
+
+		log.debug("   Concatenated ASCII: {}", concatenated);
+
+		// Converti ASCII → byte array
+		byte[] result = concatenated.getBytes(StandardCharsets.US_ASCII);
+
+		log.debug("   Total binary payload: {} bytes ({} commands)", result.length, commands.size());
+
+		return result;
+	}
+	
+	/**
+	 * Rimuove la password da un comando
+	 * 
+	 * Input:  "TEK822,S0=80"
+	 * Output: "S0=80"
+	 * 
+	 * Input:  "TEK822,R3=ACTIVE"
+	 * Output: "R3=ACTIVE"
+	 */
+	public static String removePassword(String asciiCommand) {
+	    // Trova la prima virgola
+	    int commaIndex = asciiCommand.indexOf(',');
+	    
+	    if (commaIndex != -1 && commaIndex < asciiCommand.length() - 1) {
+	        // Ritorna tutto dopo la virgola
+	        return asciiCommand.substring(commaIndex + 1);
+	    }
+	    
+	    // Nessuna virgola trovata, ritorna il comando così com'è
+	    return asciiCommand;
+	}
 	
 	/**
 	 * Converte byte array in hex string
@@ -22,57 +106,23 @@ public class ControllerUtils {
 		}
 		return hexString.toString();
 	}
-
+	
 	/**
-	 * Concatena tutti i comandi in un unico byte array
-	 * 
-	 * Format: [length1][command1_bytes][length2][command2_bytes]...
-	 * 
-	 * Ogni comando è preceduto da 2 bytes che indicano la lunghezza: - Byte 0: MSB
-	 * (Most Significant Byte) - Byte 1: LSB (Least Significant Byte)
-	 * 
-	 * Example: Command1 = "54454B3832322C53303D3830" (12 bytes) Command2 =
-	 * "54454B3832322C52333D414354495645" (18 bytes)
-	 * 
-	 * Result: [0x00][0x0C][...12 bytes of cmd1...][0x00][0x12][...18 bytes of
-	 * cmd2...]
+	 * Converte hex string in ASCII string
 	 */
-	public static byte[] concatenateCommands(List<TelemetryResponse.EncodedCommand> commands) {
-
-		List<byte[]> commandBytesList = new ArrayList<>();
-		int totalLength = 0;
-
-		// Converti ogni comando hex → byte array
-		for (TelemetryResponse.EncodedCommand cmd : commands) {
-			byte[] cmdBytes = hexStringToByteArray(cmd.getEncodedData());
-
-			// 2 bytes per la lunghezza + comando
-			totalLength += 2 + cmdBytes.length;
-			commandBytesList.add(cmdBytes);
-
-			log.debug("   Command {}: {} → {} bytes", cmd.getCommandId(), cmd.getCommandType(), cmdBytes.length);
-		}
-
-		// Crea il buffer finale
-		byte[] result = new byte[totalLength];
-		int offset = 0;
-
-		// Scrivi ogni comando con il suo length prefix
-		for (byte[] cmdBytes : commandBytesList) {
-			int length = cmdBytes.length;
-
-			// Length prefix (2 bytes, big-endian)
-			result[offset++] = (byte) ((length >> 8) & 0xFF); // MSB
-			result[offset++] = (byte) (length & 0xFF); // LSB
-
-			// Command bytes
-			System.arraycopy(cmdBytes, 0, result, offset, cmdBytes.length);
-			offset += cmdBytes.length;
-		}
-
-		log.debug("   Total binary payload: {} bytes ({} commands)", totalLength, commands.size());
-
-		return result;
+	public static String hexToAscii(String hexString) {
+	    if (hexString == null || hexString.isEmpty()) {
+	        return "";
+	    }
+	    
+	    StringBuilder ascii = new StringBuilder();
+	    for (int i = 0; i < hexString.length(); i += 2) {
+	        String hex = hexString.substring(i, Math.min(i + 2, hexString.length()));
+	        int decimal = Integer.parseInt(hex, 16);
+	        ascii.append((char) decimal);
+	    }
+	    
+	    return ascii.toString();
 	}
 
 	/**
