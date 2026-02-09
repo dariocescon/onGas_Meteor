@@ -1,35 +1,54 @@
 package com.aton.proj.oneGasMeteor.encoder.impl;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
+import com.aton.proj.oneGasMeteor.encoder.DeviceEncoder;
+import com.aton.proj.oneGasMeteor.exception.EncodingException;
+import com.aton.proj.oneGasMeteor.model.DeviceCommand;
+import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import com.aton.proj.oneGasMeteor.encoder.DeviceEncoder;
-import com.aton.proj.oneGasMeteor.exception.EncodingException;
-import com.aton.proj.oneGasMeteor.model.DeviceCommand;
-import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Encoder per comandi destinati a dispositivi Tekelek TEK822 e compatibili
- * 
- * Comandi supportati: - SET_INTERVAL: Imposta intervallo di logging - REBOOT:
- * Riavvia il dispositivo - REQUEST_STATUS: Richiede stato immediato -
- * SET_ALARM_THRESHOLD: Imposta soglie allarme
+ * Basato su: TEK 822 Logger NB-IoT/CAT-M1 User Manual (9-5988-07)
  */
 @Component
-@Order(1) // ✅ PRIORITÀ ALTA - controllato per primo
+@Order(1)
 public class Tek822Encoder implements DeviceEncoder {
 
 	private static final Logger log = LoggerFactory.getLogger(Tek822Encoder.class);
 
+	// Device types supportati
 	private static final List<String> SUPPORTED_DEVICES = Arrays.asList("TEK586", "TEK733", "TEK643", "TEK811",
 			"TEK822V1", "TEK733A", "TEK871", "TEK811A", "TEK822V1BTN", "TEK822V2", "TEK900", "TEK880", "TEK898V2",
 			"TEK898V1");
+
+	// Command types (sezione 3.20 e 3.21 del manuale)
+	public static final String CMD_SET_INTERVAL = "SET_INTERVAL"; // S0
+	public static final String CMD_SET_LISTEN = "SET_LISTEN"; // S1
+	public static final String CMD_SET_SCHEDULE = "SET_SCHEDULE"; // S2
+	public static final String CMD_REBOOT = "REBOOT"; // R3=ACTIVE
+	public static final String CMD_REQUEST_STATUS = "REQUEST_STATUS"; // R6=02
+	public static final String CMD_SET_ALARM_THRESHOLD = "SET_ALARM_THRESHOLD"; // S4/S5/S6
+	public static final String CMD_SHUTDOWN = "SHUTDOWN"; // R1=80
+	public static final String CMD_SET_RTC = "SET_RTC"; // R2
+	public static final String CMD_DEACTIVATE = "DEACTIVATE"; // R4=DEACT
+	public static final String CMD_CLOSE_TCP = "CLOSE_TCP"; // R6=03
+	public static final String CMD_REQUEST_GPS = "REQUEST_GPS"; // R7
+	public static final String CMD_REQUEST_SETTINGS = "REQUEST_SETTINGS"; // R1=02/04/08
+	public static final String CMD_SET_APN = "SET_APN"; // S12/S13/S14
+	public static final String CMD_SET_SERVER = "SET_SERVER"; // S15/S16
+
+	// Default password (sezione 3.9 del manuale)
+	private static final String DEFAULT_PASSWORD = "TEK822";
 
 	@Override
 	public boolean canEncode(String deviceType) {
@@ -41,15 +60,22 @@ public class Tek822Encoder implements DeviceEncoder {
 		List<TelemetryResponse.EncodedCommand> encodedCommands = new ArrayList<>();
 
 		for (DeviceCommand command : commands) {
-//			try {
-				TelemetryResponse.EncodedCommand encoded = encodeCommand(command);
-				if (encoded != null) {
-					encodedCommands.add(encoded);
-				}
-//			} catch (Exception e) {
-//				log.error("❌ Failed to encode command: {}", command.getCommandType(), e);
-//				// Continua con gli altri comandi invece di fallire completamente
-//			}
+			try {
+				String encodedHex = encodeCommand(command);
+
+				TelemetryResponse.EncodedCommand encoded = new TelemetryResponse.EncodedCommand();
+				encoded.setCommandId(command.getId());
+				encoded.setCommandType(command.getCommandType());
+				encoded.setEncodedData(encodedHex);
+
+				encodedCommands.add(encoded);
+
+				log.debug("✅ Encoded {}: {}", command.getCommandType(), encodedHex);
+
+			} catch (Exception e) {
+				log.error("❌ Failed to encode command: {}", command.getCommandType(), e);
+				throw new EncodingException("Failed to encode command: " + command.getCommandType(), e);
+			}
 		}
 
 		return encodedCommands;
@@ -58,158 +84,205 @@ public class Tek822Encoder implements DeviceEncoder {
 	/**
 	 * Codifica un singolo comando
 	 */
-	private TelemetryResponse.EncodedCommand encodeCommand(DeviceCommand command) {
+	private String encodeCommand(DeviceCommand command) {
+		log.debug("🔧 Encoding command: {} for device: {}", command.getCommandType(), command.getDeviceId());
 
-		String commandType = command.getCommandType();
-		log.debug("🔧 Encoding command: {} for device: {}", commandType, command.getDeviceId());
+		// Ottieni la password (usa default se non specificata)
+		String password = command.getParameters().getOrDefault("password", DEFAULT_PASSWORD).toString();
 
-		String hexData = switch (commandType) {
-		case "SET_INTERVAL" -> encodeSetInterval(command);
-		case "REBOOT" -> encodeReboot(command);
-		case "REQUEST_STATUS" -> encodeRequestStatus(command);
-		case "SET_ALARM_THRESHOLD" -> encodeSetAlarmThreshold(command);
-		default -> {
-			log.warn("⚠️  Unknown command type: {}", commandType);
-			yield null;
-		}
+		String asciiCommand = switch (command.getCommandType()) {
+		case CMD_SET_INTERVAL -> encodeSetInterval(password, command);
+		case CMD_SET_LISTEN -> encodeSetListen(password, command);
+		case CMD_SET_SCHEDULE -> encodeSetSchedule(password, command);
+		case CMD_REBOOT -> encodeReboot(password);
+		case CMD_REQUEST_STATUS -> encodeRequestStatus(password);
+		case CMD_SET_ALARM_THRESHOLD -> encodeSetAlarmThreshold(password, command);
+		case CMD_SHUTDOWN -> encodeShutdown(password);
+		case CMD_SET_RTC -> encodeSetRTC(password, command);
+		case CMD_DEACTIVATE -> encodeDeactivate(password);
+		case CMD_CLOSE_TCP -> encodeCloseTCP(password);
+		case CMD_REQUEST_GPS -> encodeRequestGPS(password, command);
+		case CMD_REQUEST_SETTINGS -> encodeRequestSettings(password, command);
+		case CMD_SET_APN -> encodeSetAPN(password, command);
+		case CMD_SET_SERVER -> encodeSetServer(password, command);
+		default -> throw new EncodingException("Unknown command type: " + command.getCommandType());
 		};
 
-		if (hexData != null) {
-			return new TelemetryResponse.EncodedCommand(command.getId(), commandType, hexData);
-		}
+		// Converti ASCII in HEX (sezione 3.21: "converted to hex")
+		String hexCommand = asciiToHex(asciiCommand);
 
-		return null;
+		log.debug("   ASCII: {}", asciiCommand);
+		log.debug("   HEX: {}", hexCommand);
+
+		return hexCommand;
 	}
 
 	/**
-	 * SET_INTERVAL: Imposta l'intervallo di logging
-	 * 
-	 * Parametri: - interval: minuti tra le letture (1-255)
-	 * 
-	 * Formato messaggio TEK822: Byte 0: 0x53 ('S' - Set) Byte 1: 0x49 ('I' -
-	 * Interval) Byte 2: interval in minuti Byte 3: checksum (XOR dei byte
-	 * precedenti)
+	 * S0: Logger Configuration (sezione 3.20.1) Example: TEK822,S0=80
 	 */
-	private String encodeSetInterval(DeviceCommand command) {
-		try {
-			Integer interval = (Integer) command.getParameter("interval");
-			if (interval == null || interval < 1 || interval > 255) {
-				throw new EncodingException("Invalid interval: " + interval + " (must be 1-255)");
-			}
+	private String encodeSetInterval(String password, DeviceCommand command) {
+		int interval = Integer.parseInt(command.getParameters().get("interval").toString());
 
-			byte[] message = new byte[4];
-			message[0] = 0x53; // 'S'
-			message[1] = 0x49; // 'I'
-			message[2] = interval.byteValue();
-			message[3] = calculateChecksum(message, 3);
+		// Formula dal PDF: S0=(128 x B) + (A x 4)
+		// A = logger speed in hours (0.25 increments)
+		// B = sampling period (0=1min, 1=15min)
 
-			String hexData = bytesToHex(message);
-			log.debug("✅ Encoded SET_INTERVAL({}): {}", interval, hexData);
-			return hexData;
+		int samplingPeriod = 1; // Default: 15 minutes
+		int loggerSpeed = interval / 15; // Converti minuti in multipli di 15
 
-		} catch (Exception e) {
-			throw new EncodingException("Failed to encode SET_INTERVAL", e);
-		}
+		int s0Value = (128 * samplingPeriod) + (loggerSpeed * 4);
+
+		return String.format("%s,S0=%02X", password, s0Value);
 	}
 
 	/**
-	 * REBOOT: Riavvia il dispositivo
-	 * 
-	 * Formato messaggio TEK822: Byte 0: 0x52 ('R' - Reboot) Byte 1: 0x42 ('B' -
-	 * Boot) Byte 2: 0x00 (reserved) Byte 3: checksum
+	 * S1: Listen Configuration (sezione 3.20.2) Example: TEK822,S1=01
 	 */
-	private String encodeReboot(DeviceCommand command) {
-	    try {
-	        byte[] message = new byte[4];
-	        message[0] = 0x52; // 'R'
-	        message[1] = 0x42; // 'B'
-	        message[2] = 0x00;
-	        message[3] = calculateChecksum(message, 3);
-	        
-	        String hexData = bytesToHex(message);
-	        log.debug("✅ Encoded REBOOT: {}", hexData);
-	        return hexData;
-	        
-	    } catch (Exception e) {
-	        throw new EncodingException("Failed to encode REBOOT", e);
-	    }
+	private String encodeSetListen(String password, DeviceCommand command) {
+		int listenMinutes = Integer.parseInt(command.getParameters().get("listenMinutes").toString());
+
+		// Formula: S1 = listenMinutes / 5
+		int s1Value = listenMinutes / 5;
+
+		return String.format("%s,S1=%02X", password, s1Value);
 	}
 
 	/**
-	 * REQUEST_STATUS: Richiede invio immediato dello stato
-	 * 
-	 * Formato messaggio TEK822: Byte 0: 0x51 ('Q' - Query) Byte 1: 0x53 ('S' -
-	 * Status) Byte 2: 0x00 (reserved) Byte 3: checksum
+	 * S2: Schedule Configuration (sezione 3.20.3) Example: TEK822,S2=7F2056
 	 */
-	private String encodeRequestStatus(DeviceCommand command) {
-		try {
-			byte[] message = new byte[4];
-			message[0] = 0x51; // 'Q'
-			message[1] = 0x53; // 'S'
-			message[2] = 0x00;
-			message[3] = calculateChecksum(message, 3);
-
-			String hexData = bytesToHex(message);
-			log.debug("✅ Encoded REQUEST_STATUS: {}", hexData);
-			return hexData;
-
-		} catch (Exception e) {
-			throw new EncodingException("Failed to encode REQUEST_STATUS", e);
-		}
+	private String encodeSetSchedule(String password, DeviceCommand command) {
+		// Implementazione complessa - per ora placeholder
+		String scheduleValue = command.getParameters().getOrDefault("schedule", "7F0038").toString();
+		return String.format("%s,S2=%s", password, scheduleValue);
 	}
 
 	/**
-	 * SET_ALARM_THRESHOLD: Imposta soglia per allarme distanza
-	 * 
-	 * Parametri: - threshold: distanza in cm (0-1023)
-	 * 
-	 * Formato messaggio TEK822: Byte 0: 0x41 ('A' - Alarm) Byte 1: 0x54 ('T' -
-	 * Threshold) Byte 2: threshold high byte Byte 3: threshold low byte Byte 4:
-	 * checksum
+	 * R3=ACTIVE: Reboot/Activate (sezione 3.21) Example: TEK822,R3=ACTIVE
 	 */
-	private String encodeSetAlarmThreshold(DeviceCommand command) {
-		try {
-			Integer threshold = (Integer) command.getParameter("threshold");
-			if (threshold == null || threshold < 0 || threshold > 1023) {
-				throw new EncodingException("Invalid threshold: " + threshold + " (must be 0-1023)");
-			}
-
-			byte[] message = new byte[5];
-			message[0] = 0x41; // 'A'
-			message[1] = 0x54; // 'T'
-			message[2] = (byte) ((threshold >> 8) & 0xFF); // High byte
-			message[3] = (byte) (threshold & 0xFF); // Low byte
-			message[4] = calculateChecksum(message, 4);
-
-			String hexData = bytesToHex(message);
-			log.debug("✅ Encoded SET_ALARM_THRESHOLD({}): {}", threshold, hexData);
-			return hexData;
-
-		} catch (Exception e) {
-			throw new EncodingException("Failed to encode SET_ALARM_THRESHOLD", e);
-		}
+	private String encodeReboot(String password) {
+		return String.format("%s,R3=ACTIVE", password);
 	}
 
 	/**
-	 * Calcola checksum XOR
+	 * R6=02: Request Status (Message Type 16) (sezione 3.21) Example: TEK822,R6=02
 	 */
-	private byte calculateChecksum(byte[] data, int length) {
-		byte checksum = 0;
-		for (int i = 0; i < length; i++) {
-			checksum ^= data[i];
-		}
-		return checksum;
+	private String encodeRequestStatus(String password) {
+		return String.format("%s,R6=02", password);
 	}
 
 	/**
-	 * Converte byte array in hex string
+	 * S4/S5/S6: Static Alarm Configuration (sezione 3.20.5) Example: TEK822,S4=E896
 	 */
-	private String bytesToHex(byte[] bytes) {
-		StringBuilder sb = new StringBuilder();
+	private String encodeSetAlarmThreshold(String password, DeviceCommand command) {
+		int threshold = Integer.parseInt(command.getParameters().get("threshold").toString());
+		int hysteresis = Integer.parseInt(command.getParameters().getOrDefault("hysteresis", "10").toString());
+		boolean enabled = Boolean.parseBoolean(command.getParameters().getOrDefault("enabled", "true").toString());
+		boolean polarity = Boolean.parseBoolean(command.getParameters().getOrDefault("polarity", "true").toString());
+
+		String alarmReg = command.getParameters().getOrDefault("alarmRegister", "S4").toString();
+
+		// Formula: S4 = D + C x (2^10) + B x (2^14) + A x (2^15)
+		int s4Value = threshold + (hysteresis * (1 << 10)) + ((enabled ? 1 : 0) * (1 << 14))
+				+ ((polarity ? 1 : 0) * (1 << 15));
+
+		return String.format("%s,%s=%04X", password, alarmReg, s4Value);
+	}
+
+	/**
+	 * R1=80: Shutdown modem and sleep (sezione 3.21) Example: TEK822,R1=80
+	 */
+	private String encodeShutdown(String password) {
+		return String.format("%s,R1=80", password);
+	}
+
+	/**
+	 * R2: Set RTC (sezione 3.21) Example: TEK822,R2=26/02/07:14/30/00
+	 */
+	private String encodeSetRTC(String password, DeviceCommand command) {
+		LocalDateTime dateTime = LocalDateTime.parse(command.getParameters().get("datetime").toString());
+
+		// Format: yy/mm/dd:hh/mm/ss
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yy/MM/dd:HH/mm/ss");
+		String formattedTime = dateTime.format(formatter);
+
+		return String.format("%s,R2=%s", password, formattedTime);
+	}
+
+	/**
+	 * R4=DEACT: Deactivate scheduled uploads (sezione 3.21) Example:
+	 * TEK822,R4=DEACT
+	 */
+	private String encodeDeactivate(String password) {
+		return String.format("%s,R4=DEACT", password);
+	}
+
+	/**
+	 * R6=03: Close TCP connection (sezione 3.21) Example: TEK822,R6=03
+	 */
+	private String encodeCloseTCP(String password) {
+		return String.format("%s,R6=03", password);
+	}
+
+	/**
+	 * R7=FF: Request GPS (Message Type 17) (sezione 3.21) Example: TEK822,R7=3C
+	 * (timeout 60 seconds in hex)
+	 */
+	private String encodeRequestGPS(String password, DeviceCommand command) {
+		int timeout = Integer.parseInt(command.getParameters().getOrDefault("timeout", "60").toString());
+		return String.format("%s,R7=%02X", password, timeout);
+	}
+
+	/**
+	 * R1=02/04/08: Request Settings (Message Type 6) (sezione 3.21) Example:
+	 * TEK822,R1=02 (settings from S0)
+	 */
+	private String encodeRequestSettings(String password, DeviceCommand command) {
+		String startFrom = command.getParameters().getOrDefault("startFrom", "S0").toString();
+
+		String r1Value = switch (startFrom) {
+		case "S0" -> "02";
+		case "S12" -> "04";
+		case "S19" -> "08";
+		default -> "02";
+		};
+
+		return String.format("%s,R1=%s", password, r1Value);
+	}
+
+	/**
+	 * S12/S13/S14: Set APN (sezione 3.20.7) Example:
+	 * TEK822,S12=internet,S13=user,S14=pass
+	 */
+	private String encodeSetAPN(String password, DeviceCommand command) {
+		String apn = command.getParameters().get("apn").toString();
+		String username = command.getParameters().getOrDefault("username", "").toString();
+		String pass = command.getParameters().getOrDefault("password", "").toString();
+
+		return String.format("%s,S12=%s,S13=%s,S14=%s", password, apn, username, pass);
+	}
+
+	/**
+	 * S15/S16: Set Server (sezione 3.20.7) Example:
+	 * TEK822,S15=84.51.250.104,S16=9000
+	 */
+	private String encodeSetServer(String password, DeviceCommand command) {
+		String serverIp = command.getParameters().get("serverIp").toString();
+		String serverPort = command.getParameters().get("serverPort").toString();
+
+		return String.format("%s,S15=%s,S16=%s", password, serverIp, serverPort);
+	}
+
+	/**
+	 * Converte stringa ASCII in HEX string (sezione 3.21: "Commands can be sent via
+	 * SMS or via GPRS (converted to hex)")
+	 */
+	private String asciiToHex(String ascii) {
+		byte[] bytes = ascii.getBytes(StandardCharsets.US_ASCII);
+		StringBuilder hex = new StringBuilder();
 		for (byte b : bytes) {
-			sb.append(String.format("%02X", b));
+			hex.append(String.format("%02X", b));
 		}
-		return sb.toString();
+		return hex.toString();
 	}
 
 	@Override

@@ -1,7 +1,18 @@
 package com.aton.proj.oneGasMeteor.service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
 import com.aton.proj.oneGasMeteor.decoder.DecoderFactory;
 import com.aton.proj.oneGasMeteor.decoder.DeviceDecoder;
+import com.aton.proj.oneGasMeteor.decoder.MessageTypeParser;
 import com.aton.proj.oneGasMeteor.encoder.DeviceEncoder;
 import com.aton.proj.oneGasMeteor.encoder.EncoderFactory;
 import com.aton.proj.oneGasMeteor.entity.CommandEntity;
@@ -9,20 +20,14 @@ import com.aton.proj.oneGasMeteor.entity.TelemetryEntity;
 import com.aton.proj.oneGasMeteor.exception.DecodingException;
 import com.aton.proj.oneGasMeteor.model.DecodedMessage;
 import com.aton.proj.oneGasMeteor.model.DeviceCommand;
+import com.aton.proj.oneGasMeteor.model.MessageType16Response;
+import com.aton.proj.oneGasMeteor.model.MessageType17Response;
+import com.aton.proj.oneGasMeteor.model.MessageType6Response;
 import com.aton.proj.oneGasMeteor.model.TekMessage;
 import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
 import com.aton.proj.oneGasMeteor.repository.CommandRepository;
 import com.aton.proj.oneGasMeteor.repository.TelemetryRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Service per elaborare i messaggi di telemetria
@@ -36,17 +41,20 @@ public class TelemetryService {
 	private final EncoderFactory encoderFactory;
 	private final TelemetryRepository telemetryRepository;
 	private final CommandRepository commandRepository;
+	private final MessageTypeParser messageTypeParser;
 	private final ObjectMapper objectMapper;
 
 	@Value("${command.max.per.response:10}")
 	private int maxCommandsPerResponse;
 
 	public TelemetryService(DecoderFactory decoderFactory, EncoderFactory encoderFactory,
-			TelemetryRepository telemetryRepository, CommandRepository commandRepository, ObjectMapper objectMapper) {
+			TelemetryRepository telemetryRepository, CommandRepository commandRepository,
+			MessageTypeParser messageTypeParser, ObjectMapper objectMapper) {
 		this.decoderFactory = decoderFactory;
 		this.encoderFactory = encoderFactory;
 		this.telemetryRepository = telemetryRepository;
 		this.commandRepository = commandRepository;
+		this.messageTypeParser = messageTypeParser;
 		this.objectMapper = objectMapper;
 
 		log.info("✅ TelemetryService initialized");
@@ -79,12 +87,45 @@ public class TelemetryService {
 			DecodedMessage decoded = decoder.decode(tekMessage);
 			String deviceId = extractDeviceId(decoded);
 			String deviceType = decoded.getUnitInfo().getProductType();
+			int messageType = extractMessageType(payload);
 
-			log.info("   ✅ Decoded: deviceType={}, deviceId={}", deviceType, deviceId);
+			log.info("   ✅ Decoded: deviceType={}, deviceId={}, messageType={}", deviceType, deviceId, messageType);
 
-			// 5. SALVA NEL DATABASE
-			TelemetryEntity savedEntity = telemetryRepository.save(deviceId, deviceType, hexMessage, decoded);
-			log.info("   💾 Saved to database: id={}", savedEntity.getId());
+			// 5. GESTISCI IN BASE AL MESSAGE TYPE
+			switch (messageType) {
+			case 4, 8, 9 -> {
+				// Standard telemetry - salva nel DB
+				TelemetryEntity savedEntity = telemetryRepository.save(deviceId, deviceType, hexMessage, decoded);
+				log.info("   💾 Saved to database: id={}", savedEntity.getId());
+			}
+			case 6 -> {
+				// Settings response - parse e log
+				String settingsPayload = extractPayloadAfterHeader(hexMessage);
+				MessageType6Response settings = messageTypeParser.parseMessageType6(settingsPayload, deviceId,
+						deviceType);
+				log.info("   ⚙️  Received settings: {} parameters", settings.getSettings().size());
+				// TODO: Opzionalmente salva in una tabella device_settings
+			}
+			case 16 -> {
+				// ICCID & Statistics - parse e log
+				String statsPayload = extractPayloadAfterHeader(hexMessage);
+				MessageType16Response stats = messageTypeParser.parseMessageType16(statsPayload, deviceId, deviceType);
+				log.info("   📊 Received statistics: ICCID={}, Energy={}mAh", stats.getIccid(), stats.getEnergyUsed());
+				// TODO: Opzionalmente salva in una tabella device_statistics
+			}
+			case 17 -> {
+				// GPS data - parse e log
+				String gpsPayload = extractPayloadAfterHeader(hexMessage);
+				MessageType17Response gps = messageTypeParser.parseMessageType17(gpsPayload, deviceId, deviceType);
+				log.info("   📍 Received GPS: lat={}, lon={}, alt={}m", gps.getLatitude(), gps.getLongitude(),
+						gps.getAltitude());
+				log.info("   🗺️  Google Maps: {}", gps.getGoogleMapsLink());
+				// TODO: Opzionalmente salva in una tabella device_locations
+			}
+			default -> {
+				log.warn("   ⚠️  Unknown message type: {}", messageType);
+			}
+			}
 
 			// 6. RECUPERA COMANDI PENDENTI PER QUESTO DEVICE
 			List<CommandEntity> pendingCommands = commandRepository.findPendingCommands(deviceId);
@@ -125,6 +166,27 @@ public class TelemetryService {
 		// Fallback: usa product type + timestamp
 		String productType = decoded.getUnitInfo() != null ? decoded.getUnitInfo().getProductType() : "UNKNOWN";
 		return productType + "-" + System.currentTimeMillis();
+	}
+
+	/**
+	 * Estrae il message type dal byte 15
+	 */
+	private int extractMessageType(byte[] payload) {
+		if (payload.length > 15) {
+			return payload[15] & 0x3F; // Minor 6 bits
+		}
+		return -1;
+	}
+
+	/**
+	 * Estrae il payload dopo l'header (da byte 17 in poi)
+	 */
+	private String extractPayloadAfterHeader(String hexMessage) {
+		// Header = 17 bytes = 34 hex chars
+		if (hexMessage.length() > 34) {
+			return hexMessage.substring(34);
+		}
+		return "";
 	}
 
 	/**
