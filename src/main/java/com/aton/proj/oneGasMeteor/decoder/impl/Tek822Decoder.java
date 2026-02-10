@@ -10,7 +10,7 @@ import com.aton.proj.oneGasMeteor.decoder.DeviceDecoder;
 import com.aton.proj.oneGasMeteor.decoder.TekMessageDecoder;
 import com.aton.proj.oneGasMeteor.exception.DecodingException;
 import com.aton.proj.oneGasMeteor.model.DecodedMessage;
-import com.aton.proj.oneGasMeteor.model.tcp.TelemetryMessage;
+import com.aton.proj.oneGasMeteor.model.TelemetryMessage;
 
 /**
  * Decoder per dispositivi Tekelek famiglia TEK822 e compatibili

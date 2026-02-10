@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 import com.aton.proj.oneGasMeteor.decoder.DeviceDecoder;
 import com.aton.proj.oneGasMeteor.model.DecodedMessage;
-import com.aton.proj.oneGasMeteor.model.tcp.TelemetryMessage;
+import com.aton.proj.oneGasMeteor.model.TelemetryMessage;
 
 /**
  * Decoder fallback per device sconosciuti

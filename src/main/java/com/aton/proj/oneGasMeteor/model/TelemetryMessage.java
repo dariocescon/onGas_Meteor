@@ -1,4 +1,4 @@
-package com.aton.proj.oneGasMeteor.model.tcp;
+package com.aton.proj.oneGasMeteor.model;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;

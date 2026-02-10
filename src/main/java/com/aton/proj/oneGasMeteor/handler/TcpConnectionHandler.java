@@ -11,8 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.aton.proj.oneGasMeteor.model.TelemetryMessage;
 import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
-import com.aton.proj.oneGasMeteor.model.tcp.TelemetryMessage;
 import com.aton.proj.oneGasMeteor.service.TelemetryService;
 import com.aton.proj.oneGasMeteor.utils.ControllerUtils;
 

@@ -5,8 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.aton.proj.oneGasMeteor.model.DecodedMessage;
-import com.aton.proj.oneGasMeteor.model.TekMessage;
-import com.aton.proj.oneGasMeteor.model.tcp.TelemetryMessage;
+import com.aton.proj.oneGasMeteor.model.TelemetryMessage;
 
 
 /**
