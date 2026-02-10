@@ -1,18 +1,18 @@
-package com.aton.proj.oneGasMeteor.decoder;
+package com.aton.proj.oneGasMeteor.decoder.tcp;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.aton.proj.oneGasMeteor.model.DecodedMessage;
+import com.aton.proj.oneGasMeteor.model.TekMessage;
 import com.aton.proj.oneGasMeteor.model.tcp.TelemetryMessage;
 
 
 /**
  * Decoder per messaggi TEK
  */
-public class TekMessageDecoder {
+public class TelemetryMessageDecoder {
 
     public DecodedMessage decode(TelemetryMessage msg) {
         DecodedMessage decode = new DecodedMessage();

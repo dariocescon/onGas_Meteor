@@ -3,7 +3,7 @@ package com.aton.proj.oneGasMeteor.decoder;
 import java.util.List;
 
 import com.aton.proj.oneGasMeteor.model.DecodedMessage;
-import com.aton.proj.oneGasMeteor.model.TekMessage;
+import com.aton.proj.oneGasMeteor.model.tcp.TelemetryMessage;
 
 /**
  * Interface per decoder di device specifici
@@ -22,7 +22,7 @@ public interface DeviceDecoder {
      * @param message Messaggio da decodificare
      * @return Dati decodificati
      */
-    DecodedMessage decode(TekMessage message);
+    DecodedMessage decode(TelemetryMessage message);
     
     /**
      * Ritorna i tipi di device supportati da questo decoder

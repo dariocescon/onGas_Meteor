@@ -21,7 +21,6 @@ public class TelemetryResponse {
 	// Array di comandi (per backward compatibility e debug)
 	private List<EncodedCommand> commands;
 
-	// ✅ NUOVO: Comandi concatenati in formato TEK822
 	private String concatenatedCommandsHex; // Formato HEX
 	private String concatenatedCommandsAscii; // Formato ASCII leggibile
 

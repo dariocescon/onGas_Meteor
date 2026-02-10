@@ -62,7 +62,7 @@ public class TcpSocketServer implements CommandLineRunner {
             try {
                 Socket clientSocket = serverSocket.accept();
                 
-                // Gestisce ogni connessione in un virtual thread separato (Java 21)
+                // Gestisce ogni connessione in un virtual thread separato
                 executorService.submit(() -> 
                     connectionHandler.handleConnection(clientSocket, properties.getTimeout())
                 );

@@ -23,8 +23,9 @@ import com.aton.proj.oneGasMeteor.model.DeviceCommand;
 import com.aton.proj.oneGasMeteor.model.MessageType16Response;
 import com.aton.proj.oneGasMeteor.model.MessageType17Response;
 import com.aton.proj.oneGasMeteor.model.MessageType6Response;
-import com.aton.proj.oneGasMeteor.model.TekMessage;
 import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
+import com.aton.proj.oneGasMeteor.model.TelemetryResponse.EncodedCommand;
+import com.aton.proj.oneGasMeteor.model.tcp.TelemetryMessage;
 import com.aton.proj.oneGasMeteor.repository.CommandRepository;
 import com.aton.proj.oneGasMeteor.repository.TelemetryRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -66,41 +67,35 @@ public class TelemetryService {
 	 * @param hexMessage Messaggio in formato hex string
 	 * @return Risposta da inviare al device
 	 */
-	public TelemetryResponse processTelemetry(String hexMessage) {
+	public TelemetryResponse processTelemetry(TelemetryMessage message) {
 
 		LocalDateTime receivedAt = LocalDateTime.now();
-		log.info("Processing telemetry message: {} chars", hexMessage.length());
+		log.info("Processing telemetry message: {} chars", message.getHexData().length());
 
 		try {
-			// 1. CONVERTI HEX STRING → BYTE ARRAY
-			byte[] payload = hexStringToByteArray(hexMessage);
-			log.debug("   Converted to {} bytes", payload.length);
-
 			// 2. SELEZIONA IL DECODER APPROPRIATO
-			DeviceDecoder decoder = decoderFactory.getDecoder(payload);
+			DeviceDecoder decoder = decoderFactory.getDecoder(message.getPayload());
 			log.debug("   Selected decoder: {}", decoder.getDecoderName());
 
-			// 3. CREA TekMessage con timestamp
-			TekMessage tekMessage = TekMessage.fromHexString(hexMessage, System.currentTimeMillis());
-
 			// 4. DECODIFICA IL MESSAGGIO
-			DecodedMessage decoded = decoder.decode(tekMessage);
+			DecodedMessage decoded = decoder.decode(message);
 			String deviceId = extractDeviceId(decoded);
 			String deviceType = decoded.getUnitInfo().getProductType();
-			int messageType = extractMessageType(payload);
+			int messageType = extractMessageType(message.getPayload());
 
 			log.info("  Decoded: deviceType={}, deviceId={}, messageType={}", deviceType, deviceId, messageType);
 
+			String hexData = message.getHexData();
 			// 5. GESTISCI IN BASE AL MESSAGE TYPE
 			switch (messageType) {
 			case 4, 8, 9 -> {
 				// Standard telemetry - salva nel DB
-				TelemetryEntity savedEntity = telemetryRepository.save(deviceId, deviceType, hexMessage, decoded);
+				TelemetryEntity savedEntity = telemetryRepository.save(deviceId, deviceType, hexData, decoded);
 				log.info("  Saved to database: id={}", savedEntity.getId());
 			}
 			case 6 -> {
 				// Settings response - parse e log
-				String settingsPayload = extractPayloadAfterHeader(hexMessage);
+				String settingsPayload = extractPayloadAfterHeader(hexData);
 				MessageType6Response settings = messageTypeParser.parseMessageType6(settingsPayload, deviceId,
 						deviceType);
 				log.info("  Received settings: {} parameters", settings.getSettings().size());
@@ -108,14 +103,14 @@ public class TelemetryService {
 			}
 			case 16 -> {
 				// ICCID & Statistics - parse e log
-				String statsPayload = extractPayloadAfterHeader(hexMessage);
+				String statsPayload = extractPayloadAfterHeader(hexData);
 				MessageType16Response stats = messageTypeParser.parseMessageType16(statsPayload, deviceId, deviceType);
 				log.info("  Received statistics: ICCID={}, Energy={}mAh", stats.getIccid(), stats.getEnergyUsed());
 				// TODO: Opzionalmente salva in una tabella device_statistics
 			}
 			case 17 -> {
 				// GPS data - parse e log
-				String gpsPayload = extractPayloadAfterHeader(hexMessage);
+				String gpsPayload = extractPayloadAfterHeader(hexData);
 				MessageType17Response gps = messageTypeParser.parseMessageType17(gpsPayload, deviceId, deviceType);
 				log.info("  Received GPS: lat={}, lon={}, alt={}m", gps.getLatitude(), gps.getLongitude(),
 						gps.getAltitude());
@@ -144,7 +139,7 @@ public class TelemetryService {
 			response.setCommands(encodedCommands);
 
 			long processingTimeMs = java.time.Duration.between(receivedAt, LocalDateTime.now()).toMillis();
-			log.info("✅ Telemetry processed successfully in {} ms (commands: {})", processingTimeMs,
+			log.info("  Telemetry processed successfully in {} ms (commands: {})", processingTimeMs,
 					encodedCommands.size());
 
 			return response;
@@ -152,6 +147,13 @@ public class TelemetryService {
 		} catch (Exception e) {
 			log.error("❌ Error processing telemetry", e);
 			throw new DecodingException("Failed to process telemetry: " + e.getMessage(), e);
+		}
+	}
+	
+	public void markCommandsAsSent(List<EncodedCommand> commands) {
+		// Marca i comandi come SENT
+		for (EncodedCommand cmd : commands) {
+			commandRepository.markAsSent(cmd.getCommandId());
 		}
 	}
 
@@ -210,11 +212,6 @@ public class TelemetryService {
 
 			// Codifica i comandi
 			List<TelemetryResponse.EncodedCommand> encodedCommands = encoder.encode(deviceCommands);
-
-			// Marca i comandi come SENT
-			for (CommandEntity cmd : commandsToSend) {
-				commandRepository.markAsSent(cmd.getId());
-			}
 
 			log.info("   📤 Encoded {} commands successfully", encodedCommands.size());
 

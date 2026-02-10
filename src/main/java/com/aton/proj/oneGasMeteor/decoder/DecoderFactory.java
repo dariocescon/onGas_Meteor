@@ -23,7 +23,7 @@ public class DecoderFactory {
 		this.fallbackDecoder = fallbackDecoder;
 
 		log.info("🔧 DecoderFactory initialized with {} decoders", decoders.size());
-		decoders.forEach(decoder -> log.info("   ✅ {} supports: {}", decoder.getDecoderName(),
+		decoders.forEach(decoder -> log.info("  {} supports: {}", decoder.getDecoderName(),
 				decoder.getSupportedDeviceTypes()));
 	}
 
@@ -38,12 +38,12 @@ public class DecoderFactory {
 
 		for (DeviceDecoder decoder : decoders) {
 			if (decoder.canDecode(payload)) {
-				log.debug("✅ Selected decoder: {} for product type: {}", decoder.getDecoderName(), payload[0] & 0xFF);
+				log.debug("  Selected decoder: {} for product type: {}", decoder.getDecoderName(), payload[0] & 0xFF);
 				return decoder;
 			}
 		}
 
-		log.warn("⚠️  No decoder found for product type: {}, using fallback", payload[0] & 0xFF);
+		log.warn("  No decoder found for product type: {}, using fallback", payload[0] & 0xFF);
 		return fallbackDecoder;
 	}
 }
