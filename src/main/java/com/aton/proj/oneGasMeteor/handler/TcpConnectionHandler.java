@@ -69,8 +69,7 @@ public class TcpConnectionHandler {
 				log.info("   Sending {} commands back to device: {}", response.getCommands().size(),
 						response.getConcatenatedCommandsAscii());
 				log.debug("  Commands bytes: {} bytes", response.getConcatenatedCommandsHex().getBytes().length);
-				log.debug("  Commands HEX: {}",
-						ControllerUtils.bytesToHex(response.getConcatenatedCommandsHex().getBytes()));
+				log.debug("  Commands HEX: {}", response.getConcatenatedCommandsHex());
 				log.debug("  Commands ASCII: {}", response.getConcatenatedCommandsAscii());
 				replyBytes = response.getConcatenatedCommandsHex().getBytes();
 
