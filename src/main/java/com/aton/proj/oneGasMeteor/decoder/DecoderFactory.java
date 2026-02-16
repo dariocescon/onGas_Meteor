@@ -22,7 +22,7 @@ public class DecoderFactory {
 		this.decoders = decoders;
 		this.fallbackDecoder = fallbackDecoder;
 
-		log.info("🔧 DecoderFactory initialized with {} decoders", decoders.size());
+		log.info("  DecoderFactory initialized with {} decoders", decoders.size());
 		decoders.forEach(decoder -> log.info("  {} supports: {}", decoder.getDecoderName(),
 				decoder.getSupportedDeviceTypes()));
 	}
@@ -32,7 +32,7 @@ public class DecoderFactory {
 	 */
 	public DeviceDecoder getDecoder(byte[] payload) {
 		if (payload == null || payload.length == 0) {
-			log.warn("⚠️  Empty payload, using fallback decoder");
+			log.warn("  Empty payload, using fallback decoder");
 			return fallbackDecoder;
 		}
 

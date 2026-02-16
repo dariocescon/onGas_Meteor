@@ -1,5 +1,6 @@
 package com.aton.proj.oneGasMeteor.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,7 +76,7 @@ public class TelemetryService {
 		try {
 			// 2. SELEZIONA IL DECODER APPROPRIATO
 			DeviceDecoder decoder = decoderFactory.getDecoder(message.getPayload());
-			log.debug("   Selected decoder: {}", decoder.getDecoderName());
+			log.debug("  Selected decoder: {}", decoder.getDecoderName());
 
 			// 4. DECODIFICA IL MESSAGGIO
 			DecodedMessage decoded = decoder.decode(message);
@@ -138,7 +139,7 @@ public class TelemetryService {
 			response.setProcessedAt(LocalDateTime.now());
 			response.setCommands(encodedCommands);
 
-			long processingTimeMs = java.time.Duration.between(receivedAt, LocalDateTime.now()).toMillis();
+			long processingTimeMs = Duration.between(receivedAt, LocalDateTime.now()).toMillis();
 			log.info("  Telemetry processed successfully in {} ms (commands: {})", processingTimeMs,
 					encodedCommands.size());
 
@@ -238,36 +239,36 @@ public class TelemetryService {
 				Map<String, Object> params = objectMapper.readValue(entity.getCommandParamsJson(), Map.class);
 				command.setParameters(params);
 			} catch (Exception e) {
-				log.warn("⚠️  Failed to parse command params for command {}: {}", entity.getId(), e.getMessage());
+				log.warn("  Failed to parse command params for command {}: {}", entity.getId(), e.getMessage());
 			}
 		}
 
 		return command;
 	}
 
-	/**
-	 * Converte hex string in byte array
-	 */
-	private byte[] hexStringToByteArray(String hexString) {
-		if (hexString == null || hexString.isEmpty()) {
-			throw new IllegalArgumentException("Hex string cannot be null or empty");
-		}
-
-		// Rimuovi spazi e caratteri non validi
-		hexString = hexString.replaceAll("[^0-9A-Fa-f]", "");
-
-		if (hexString.length() % 2 != 0) {
-			throw new IllegalArgumentException("Invalid hex string length: " + hexString.length());
-		}
-
-		int len = hexString.length();
-		byte[] data = new byte[len / 2];
-
-		for (int i = 0; i < len; i += 2) {
-			data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
-					+ Character.digit(hexString.charAt(i + 1), 16));
-		}
-
-		return data;
-	}
+//	/**
+//	 * Converte hex string in byte array
+//	 */
+//	private byte[] hexStringToByteArray(String hexString) {
+//		if (hexString == null || hexString.isEmpty()) {
+//			throw new IllegalArgumentException("Hex string cannot be null or empty");
+//		}
+//
+//		// Rimuovi spazi e caratteri non validi
+//		hexString = hexString.replaceAll("[^0-9A-Fa-f]", "");
+//
+//		if (hexString.length() % 2 != 0) {
+//			throw new IllegalArgumentException("Invalid hex string length: " + hexString.length());
+//		}
+//
+//		int len = hexString.length();
+//		byte[] data = new byte[len / 2];
+//
+//		for (int i = 0; i < len; i += 2) {
+//			data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
+//					+ Character.digit(hexString.charAt(i + 1), 16));
+//		}
+//
+//		return data;
+//	}
 }

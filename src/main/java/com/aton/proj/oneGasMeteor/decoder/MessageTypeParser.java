@@ -1,15 +1,14 @@
 package com.aton.proj.oneGasMeteor.decoder;
 
-import com.aton.proj.oneGasMeteor.model.MessageType16Response;
-import com.aton.proj.oneGasMeteor.model.MessageType17Response;
-import com.aton.proj.oneGasMeteor.model.MessageType6Response;
+import java.time.LocalTime;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
+import com.aton.proj.oneGasMeteor.model.MessageType16Response;
+import com.aton.proj.oneGasMeteor.model.MessageType17Response;
+import com.aton.proj.oneGasMeteor.model.MessageType6Response;
 
 /**
  * Parser per Message Type 6, 16 e 17 Questi messaggi contengono dati ASCII

@@ -61,19 +61,19 @@ public class Tek822Encoder implements DeviceEncoder {
 
 		for (DeviceCommand command : commands) {
 			try {
-				String encodedHex = encodeCommand(command);
+				encodeCommand(command);
 
 				TelemetryResponse.EncodedCommand encoded = new TelemetryResponse.EncodedCommand();
 				encoded.setCommandId(command.getId());
 				encoded.setCommandType(command.getCommandType());
-				encoded.setEncodedData(encodedHex);
+				encoded.setEncodedData(command.getEncodedCommandASCII());
 
 				encodedCommands.add(encoded);
 
-				log.debug("✅ Encoded {}: {}", command.getCommandType(), encodedHex);
+				log.debug("  Encoded {}: {}", command.getCommandType(), command.getEncodedCommandASCII());
 
 			} catch (Exception e) {
-				log.error("❌ Failed to encode command: {}", command.getCommandType(), e);
+				log.error("  Failed to encode command: {}", command.getCommandType(), e);
 				throw new EncodingException("Failed to encode command: " + command.getCommandType(), e);
 			}
 		}
@@ -84,8 +84,8 @@ public class Tek822Encoder implements DeviceEncoder {
 	/**
 	 * Codifica un singolo comando
 	 */
-	private String encodeCommand(DeviceCommand command) {
-		log.debug("🔧 Encoding command: {} for device: {}", command.getCommandType(), command.getDeviceId());
+	private DeviceCommand encodeCommand(DeviceCommand command) {
+		log.debug("  Encoding command: {} for device: {}", command.getCommandType(), command.getDeviceId());
 
 		// Ottieni la password (usa default se non specificata)
 		String password = command.getParameters().getOrDefault("password", DEFAULT_PASSWORD).toString();
@@ -110,11 +110,14 @@ public class Tek822Encoder implements DeviceEncoder {
 
 		// Converti ASCII in HEX (sezione 3.21: "converted to hex")
 		String hexCommand = asciiToHex(asciiCommand);
+		
+		command.setEncodedCommandASCII(asciiCommand);
+		command.setEncodedCommandHEX(hexCommand);
 
 		log.debug("   ASCII: {}", asciiCommand);
 		log.debug("   HEX: {}", hexCommand);
 
-		return hexCommand;
+		return command;
 	}
 
 	/**
