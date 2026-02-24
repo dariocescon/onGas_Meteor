@@ -22,8 +22,8 @@ public class DecoderFactory {
 		this.decoders = decoders;
 		this.fallbackDecoder = fallbackDecoder;
 
-		log.info("🔧 DecoderFactory initialized with {} decoders", decoders.size());
-		decoders.forEach(decoder -> log.info("   ✅ {} supports: {}", decoder.getDecoderName(),
+		log.info("  DecoderFactory initialized with {} decoders", decoders.size());
+		decoders.forEach(decoder -> log.info("  {} supports: {}", decoder.getDecoderName(),
 				decoder.getSupportedDeviceTypes()));
 	}
 
@@ -32,18 +32,18 @@ public class DecoderFactory {
 	 */
 	public DeviceDecoder getDecoder(byte[] payload) {
 		if (payload == null || payload.length == 0) {
-			log.warn("⚠️  Empty payload, using fallback decoder");
+			log.warn("  Empty payload, using fallback decoder");
 			return fallbackDecoder;
 		}
 
 		for (DeviceDecoder decoder : decoders) {
 			if (decoder.canDecode(payload)) {
-				log.debug("✅ Selected decoder: {} for product type: {}", decoder.getDecoderName(), payload[0] & 0xFF);
+				log.debug("  Selected decoder: {} for product type: {}", decoder.getDecoderName(), payload[0] & 0xFF);
 				return decoder;
 			}
 		}
 
-		log.warn("⚠️  No decoder found for product type: {}, using fallback", payload[0] & 0xFF);
+		log.warn("  No decoder found for product type: {}, using fallback", payload[0] & 0xFF);
 		return fallbackDecoder;
 	}
 }

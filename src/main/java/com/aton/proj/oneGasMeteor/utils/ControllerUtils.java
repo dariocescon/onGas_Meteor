@@ -1,4 +1,4 @@
-package com.aton.proj.oneGasMeteor.controller.utils;
+package com.aton.proj.oneGasMeteor.utils;
 
 import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
 import org.slf4j.Logger;
@@ -168,5 +168,24 @@ public class ControllerUtils {
 	public static String commandsToAsciiString(List<TelemetryResponse.EncodedCommand> commands) {
 		byte[] concatenated = concatenateCommands(commands);
 		return new String(concatenated, StandardCharsets.US_ASCII);
+	}
+	
+	/**
+	 * METODO HELPER: Arricchisce la risposta con comandi concatenati
+	 */
+	public static void enrichResponseWithConcatenatedCommands(TelemetryResponse response) {
+		if (response.getCommands() != null && !response.getCommands().isEmpty()) {
+
+			// Genera comandi concatenati in HEX
+			String concatenatedHex = ControllerUtils.commandsToHexString(response.getCommands());
+			response.setConcatenatedCommandsHex(concatenatedHex);
+
+			// Genera comandi concatenati in ASCII (per leggibilità)
+			String concatenatedAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
+			response.setConcatenatedCommandsAscii(concatenatedAscii);
+
+			log.info("  Sending {} commands: {}", response.getCommands().size(), concatenatedAscii);
+			log.debug("  Commands HEX: {}", concatenatedHex);
+		}
 	}
 }

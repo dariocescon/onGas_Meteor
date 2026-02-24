@@ -10,7 +10,7 @@ import com.aton.proj.oneGasMeteor.decoder.DeviceDecoder;
 import com.aton.proj.oneGasMeteor.decoder.TekMessageDecoder;
 import com.aton.proj.oneGasMeteor.exception.DecodingException;
 import com.aton.proj.oneGasMeteor.model.DecodedMessage;
-import com.aton.proj.oneGasMeteor.model.TekMessage;
+import com.aton.proj.oneGasMeteor.model.TelemetryMessage;
 
 /**
  * Decoder per dispositivi Tekelek famiglia TEK822 e compatibili
@@ -19,7 +19,7 @@ import com.aton.proj.oneGasMeteor.model.TekMessage;
 @Order(1)
 public class Tek822Decoder implements DeviceDecoder {
     
-    private final TekMessageDecoder tekMessageDecoder = new TekMessageDecoder();
+    private final TekMessageDecoder telemetryMessageDecoder = new TekMessageDecoder();
     
     // Product type codes supportati da questo decoder
     private static final List<Integer> SUPPORTED_PRODUCT_CODES = Arrays.asList(
@@ -50,11 +50,11 @@ public class Tek822Decoder implements DeviceDecoder {
     }
     
     @Override
-    public DecodedMessage decode(TekMessage message) {
+    public DecodedMessage decode(TelemetryMessage message) {
         try {
-            return tekMessageDecoder.decode(message);
+            return telemetryMessageDecoder.decode(message);
         } catch (Exception e) {
-            throw new DecodingException("Failed to decode TEK822 message", e);
+            throw new DecodingException("Failed to decode message", e);
         }
     }
     

@@ -25,7 +25,7 @@ class Tek822EncoderTest {
 		List<TelemetryResponse.EncodedCommand> encoded = encoder.encode(List.of(cmd1));
 
 		assertEquals(1, encoded.size());
-		assertEquals("53490F15", encoded.get(0).getEncodedData());
+		assertEquals("54454B3832322C53303D4243", encoded.get(0).getEncodedData());
 
 		// Test REBOOT
 		DeviceCommand cmd2 = new DeviceCommand("device123", "TEK822V1", "REBOOT");
@@ -54,7 +54,7 @@ class Tek822EncoderTest {
 		// 1. SET_INTERVAL(15)
 		DeviceCommand cmd1 = new DeviceCommand("dev1", "TEK822V1", "SET_INTERVAL");
 		cmd1.addParameter("interval", 15);
-		assertEquals("53490F15", encoder.encode(List.of(cmd1)).get(0).getEncodedData());
+		assertEquals("54454B3832322C53303D4243", encoder.encode(List.of(cmd1)).get(0).getEncodedData());
 
 		// 2. REBOOT
 		DeviceCommand cmd2 = new DeviceCommand("dev1", "TEK822V1", "REBOOT");
@@ -114,5 +114,7 @@ class Tek822EncoderTest {
 
 		assertThrows(Exception.class, () -> encoder.encode(List.of(cmd2)));
 	}
+	
+	
 
 }

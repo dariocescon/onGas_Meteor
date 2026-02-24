@@ -8,9 +8,10 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "telemetry_data", indexes = {
-    @Index(name = "idx_device_id", columnList = "device_id"),
-    @Index(name = "idx_device_type", columnList = "device_type"),
-    @Index(name = "idx_received_at", columnList = "received_at")
+	    @Index(name = "idx_device_id", columnList = "device_id"),
+	    @Index(name = "idx_device_type", columnList = "device_type"),
+	    @Index(name = "idx_received_at", columnList = "received_at"),
+	    @Index(name = "idx_imei", columnList = "imei")
 })
 public class TelemetryEntity {
     
