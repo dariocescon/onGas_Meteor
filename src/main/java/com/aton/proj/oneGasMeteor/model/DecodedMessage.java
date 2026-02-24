@@ -318,6 +318,7 @@ public class DecodedMessage {
 
 	public static class DiagnosticInfo {
 		private Boolean rtcSet;
+		private Boolean lteActive;
 		private Boolean activation;
 		private Integer energyUsedLastContactMaSeconds;
 		private Integer lastErrorCode;
@@ -331,7 +332,15 @@ public class DecodedMessage {
 		public void setRtcSet(Boolean rtcSet) {
 			this.rtcSet = rtcSet;
 		}
+		
+		public Boolean getLteActive() {
+			return lteActive;
+		}
 
+		public void setLteActive(Boolean lteActive) {
+			this.lteActive = lteActive;
+		}
+		
 		public Boolean getActivation() {
 			return activation;
 		}
@@ -371,6 +380,7 @@ public class DecodedMessage {
 		public void setTryAttemptsRemaining(Integer tryAttemptsRemaining) {
 			this.tryAttemptsRemaining = tryAttemptsRemaining;
 		}
+
 	}
 
 	public static class BatteryStatus {

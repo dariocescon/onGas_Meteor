@@ -43,7 +43,7 @@ public class MessageTypeParser {
 	 * S0=80,S1=05,S2=7F0038,...
 	 */
 	public MessageType6Response parseMessageType6(String hexPayload, String deviceId, String deviceType) {
-		log.debug("🔍 Parsing Message Type 6 for device: {}", deviceId);
+		log.debug(" Parsing Message Type 6 for device: {}", deviceId);
 
 		MessageType6Response response = new MessageType6Response();
 		response.setDeviceId(deviceId);
@@ -53,6 +53,11 @@ public class MessageTypeParser {
 			// Converti hex in ASCII
 			String asciiData = hexToAscii(hexPayload);
 			log.debug("   ASCII data: {}", asciiData);
+
+			// Rimuovi leading comma se presente
+			if (asciiData.startsWith(",")) {
+				asciiData = asciiData.substring(1);
+			}
 
 			// Parse settings (formato: S0=80,S1=05,S2=7F0038,...)
 			String[] settings = asciiData.split(",");
@@ -66,10 +71,10 @@ public class MessageTypeParser {
 				}
 			}
 
-			log.info("✅ Parsed {} settings from Message Type 6", response.getSettings().size());
+			log.info("  Parsed {} settings from Message Type 6", response.getSettings().size());
 
 		} catch (Exception e) {
-			log.error("❌ Failed to parse Message Type 6", e);
+			log.error("  Failed to parse Message Type 6", e);
 		}
 
 		return response;
@@ -81,7 +86,7 @@ public class MessageTypeParser {
 	 * ICCID,energyUsed,minTemp,maxTemp,...
 	 */
 	public MessageType16Response parseMessageType16(String hexPayload, String deviceId, String deviceType) {
-		log.debug("🔍 Parsing Message Type 16 for device: {}", deviceId);
+		log.debug("  Parsing Message Type 16 for device: {}", deviceId);
 
 		MessageType16Response response = new MessageType16Response();
 		response.setDeviceId(deviceId);
@@ -90,7 +95,12 @@ public class MessageTypeParser {
 		try {
 			// Converti hex in ASCII
 			String asciiData = hexToAscii(hexPayload);
-			log.debug("   ASCII data: {}", asciiData);
+			log.debug("  ASCII data: {}", asciiData);
+
+			// Rimuovi leading comma se presente
+			if (asciiData.startsWith(",")) {
+				asciiData = asciiData.substring(1);
+			}
 
 			// Parse CSV format
 			String[] fields = asciiData.split(",");
@@ -112,14 +122,14 @@ public class MessageTypeParser {
 				// Calcola campi derivati
 				response.calculateDerivedFields();
 
-				log.info("✅ Parsed Message Type 16: ICCID={}, Energy={}mAh, SuccessRate={}%", response.getIccid(),
+				log.info("  Parsed Message Type 16: ICCID={}, Energy={}mAh, SuccessRate={}%", response.getIccid(),
 						response.getEnergyUsed(), String.format("%.2f", response.getDeliverySuccessRate()));
 			} else {
-				log.warn("⚠️  Unexpected field count in Message Type 16: {} (expected 12)", fields.length);
+				log.warn("   Unexpected field count in Message Type 16: {} (expected 12)", fields.length);
 			}
 
 		} catch (Exception e) {
-			log.error("❌ Failed to parse Message Type 16", e);
+			log.error("  Failed to parse Message Type 16", e);
 		}
 
 		return response;
@@ -140,6 +150,11 @@ public class MessageTypeParser {
 			// Converti hex in ASCII
 			String asciiData = hexToAscii(hexPayload);
 			log.debug("   ASCII data: {}", asciiData);
+
+			// Rimuovi leading comma se presente
+			if (asciiData.startsWith(",")) {
+				asciiData = asciiData.substring(1);
+			}
 
 			// Parse CSV format
 			String[] fields = asciiData.split(",");
@@ -167,15 +182,15 @@ public class MessageTypeParser {
 				response.setDate(fields[10].trim());
 				response.setNumberOfSatellites(parseInteger(fields[11]));
 
-				log.info("✅ Parsed Message Type 17: GPS({}, {}) alt={}m, sats={}", response.getLatitude(),
+				log.info("  Parsed Message Type 17: GPS({}, {}) alt={}m, sats={}", response.getLatitude(),
 						response.getLongitude(), response.getAltitude(), response.getNumberOfSatellites());
 				log.info("   📍 Google Maps: {}", response.getGoogleMapsLink());
 			} else {
-				log.warn("⚠️  Unexpected field count in Message Type 17: {} (expected 12)", fields.length);
+				log.warn("   Unexpected field count in Message Type 17: {} (expected 12)", fields.length);
 			}
 
 		} catch (Exception e) {
-			log.error("❌ Failed to parse Message Type 17", e);
+			log.error("  Failed to parse Message Type 17", e);
 		}
 
 		return response;

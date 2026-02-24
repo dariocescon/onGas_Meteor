@@ -66,7 +66,7 @@ public class Tek822Encoder implements DeviceEncoder {
 				TelemetryResponse.EncodedCommand encoded = new TelemetryResponse.EncodedCommand();
 				encoded.setCommandId(command.getId());
 				encoded.setCommandType(command.getCommandType());
-				encoded.setEncodedData(command.getEncodedCommandASCII());
+				encoded.setEncodedData(command.getEncodedCommandHEX());
 
 				encodedCommands.add(encoded);
 
@@ -124,18 +124,17 @@ public class Tek822Encoder implements DeviceEncoder {
 	 * S0: Logger Configuration (sezione 3.20.1) Example: TEK822,S0=80
 	 */
 	private String encodeSetInterval(String password, DeviceCommand command) {
-		int interval = Integer.parseInt(command.getParameters().get("interval").toString());
 
 		// Formula dal PDF: S0=(128 x B) + (A x 4)
 		// A = logger speed in hours (0.25 increments)
 		// B = sampling period (0=1min, 1=15min)
-
-		int samplingPeriod = 1; // Default: 15 minutes
-		int loggerSpeed = interval / 15; // Converti minuti in multipli di 15
-
-		int s0Value = (128 * samplingPeriod) + (loggerSpeed * 4);
-
-		return String.format("%s,S0=%02X", password, s0Value);
+	
+		double loggerSpeed = Double.parseDouble(command.getParameters().get("interval").toString());
+	    int samplingPeriod = Integer.parseInt(command.getParameters().getOrDefault("samplingPeriod", "1").toString());
+	    
+	    int s0Value2 = (int)((128 * samplingPeriod) + (loggerSpeed * 4));
+	    
+	    return String.format("%s,S0=%02X", password, s0Value2);
 	}
 
 	/**
@@ -259,7 +258,7 @@ public class Tek822Encoder implements DeviceEncoder {
 	private String encodeSetAPN(String password, DeviceCommand command) {
 		String apn = command.getParameters().get("apn").toString();
 		String username = command.getParameters().getOrDefault("username", "").toString();
-		String pass = command.getParameters().getOrDefault("password", "").toString();
+		String pass = command.getParameters().getOrDefault("apnPassword", "").toString();
 
 		return String.format("%s,S12=%s,S13=%s,S14=%s", password, apn, username, pass);
 	}

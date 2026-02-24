@@ -71,7 +71,7 @@ public class TcpConnectionHandler {
 				log.debug("  Commands bytes: {} bytes", response.getConcatenatedCommandsHex().getBytes().length);
 				log.debug("  Commands HEX: {}", response.getConcatenatedCommandsHex());
 				log.debug("  Commands ASCII: {}", response.getConcatenatedCommandsAscii());
-				replyBytes = response.getConcatenatedCommandsHex().getBytes();
+				replyBytes = response.getConcatenatedCommandsAscii().getBytes();
 
 			} else {
 				// Nessun comando: risposta vuota
