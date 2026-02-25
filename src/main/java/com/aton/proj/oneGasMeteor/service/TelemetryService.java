@@ -245,30 +245,4 @@ public class TelemetryService {
 
 		return command;
 	}
-
-//	/**
-//	 * Converte hex string in byte array
-//	 */
-//	private byte[] hexStringToByteArray(String hexString) {
-//		if (hexString == null || hexString.isEmpty()) {
-//			throw new IllegalArgumentException("Hex string cannot be null or empty");
-//		}
-//
-//		// Rimuovi spazi e caratteri non validi
-//		hexString = hexString.replaceAll("[^0-9A-Fa-f]", "");
-//
-//		if (hexString.length() % 2 != 0) {
-//			throw new IllegalArgumentException("Invalid hex string length: " + hexString.length());
-//		}
-//
-//		int len = hexString.length();
-//		byte[] data = new byte[len / 2];
-//
-//		for (int i = 0; i < len; i += 2) {
-//			data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
-//					+ Character.digit(hexString.charAt(i + 1), 16));
-//		}
-//
-//		return data;
-//	}
 }

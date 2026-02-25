@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 
 import com.aton.proj.oneGasMeteor.exception.DecodingException;
@@ -22,9 +23,9 @@ public class TekMessageDecoder {
 
 		int declaredLength = ((payload[15] >> 4) & 0x03) * 256 + (payload[16] & 0xFF);
 		if (payload.length < 17 + declaredLength) {
-		    throw new DecodingException("Payload troncato: attesi " + declaredLength + " bytes");
+			throw new DecodingException("Payload troncato: attesi " + declaredLength + " bytes");
 		}
-		
+
 		// DECODING MESSAGE HEADER
 		decodeProductType(payload, decode);
 		decodeVersions(payload, decode);
@@ -89,34 +90,35 @@ public class TekMessageDecoder {
 		decode.getUniqueIdentifier().setImei(imei.substring(1));
 	}
 
-	private void decodeMessageType(byte[] payload, DecodedMessage decode) {
+	private void decodeMessageType(byte[] payload, DecodedMessage decode) { 
 		int msgType = payload[15] & 0x3F;
-		decode.setMessageType("Message Type " + msgType);
+		decode.setMessageType(String.valueOf(msgType));
 	}
 
 	private void decodeContactReason(byte[] payload, DecodedMessage decode) {
 		var contactReason = decode.getContactReason();
 
-		contactReason.setTspRequested((payload[3] & 0x20) != 0);
-		contactReason.setReboot((payload[3] & 0x10) != 0);
-		contactReason.setManual((payload[3] & 0x08) != 0);
-		contactReason.setServerRequest((payload[3] & 0x04) != 0);
-		contactReason.setAlarm((payload[3] & 0x02) != 0);
 		contactReason.setScheduled((payload[3] & 0x01) != 0);
-		contactReason.setActivation((payload[4] & 0x80) != 0);
-
-		decode.getDiagnosticInfo().setActivation(contactReason.getActivation());
+		contactReason.setAlarm((payload[3] & 0x02) != 0);
+		contactReason.setServerRequest((payload[3] & 0x04) != 0);
+		contactReason.setManual((payload[3] & 0x08) != 0);
+		contactReason.setReboot((payload[3] & 0x10) != 0);
+		contactReason.setTspRequested((payload[3] & 0x20) != 0);
+		contactReason.setDynamic1((payload[3] & 0x40) != 0);
+		contactReason.setDynamic2((payload[3] & 0x80) != 0);
+		
+//		contactReason.setActivation((payload[4] & 0x80) != 0);
+//		decode.getDiagnosticInfo().setActivation(contactReason.getActivation());
 	}
 
 	private void decodeAlarmStatus(byte[] payload, DecodedMessage decode) {
 		var alarmStatus = decode.getAlarmStatus();
 
-		alarmStatus.setDynamic2((payload[3] & 0x80) != 0);
-		alarmStatus.setDynamic1((payload[3] & 0x40) != 0);
-		alarmStatus.setBund((payload[4] & 0x08) != 0);
-		alarmStatus.setStatic3((payload[4] & 0x04) != 0);
-		alarmStatus.setStatic2((payload[4] & 0x02) != 0);
 		alarmStatus.setStatic1((payload[4] & 0x01) != 0);
+		alarmStatus.setStatic2((payload[4] & 0x02) != 0);
+		alarmStatus.setStatic3((payload[4] & 0x04) != 0);
+		alarmStatus.setBund((payload[4] & 0x08) != 0);
+		alarmStatus.setActive((payload[4] & 0x80) != 0);
 	}
 
 	private void decodeLastReset(byte[] payload, DecodedMessage decode) {
@@ -125,6 +127,7 @@ public class TekMessageDecoder {
 	}
 
 	private void decodeSignalStrength(byte[] payload, DecodedMessage decode) {
+		
 		int productType = payload[0] & 0xFF;
 		var signalStrength = decode.getSignalStrength();
 
@@ -149,14 +152,15 @@ public class TekMessageDecoder {
 		switch (productType) {
 		case 6, 8, 10, 23, 24, 27, 28 -> { // Battery percentage
 			double percentage = ((payload[6] & 0x1F) * 100.0) / 31.0;
-			batteryStatus.setBatteryRemainingPercentage(String.format("%.1f", percentage));
+			batteryStatus.setBatteryRemainingPercentage(String.format("%.2f", percentage));
 		}
 		case 2, 5, 9, 7, 11, 25, 26 -> { // Battery voltage
 			double voltage = ((payload[6] & 0x1F) + 30.0) / 10.0;
-			batteryStatus.setBatteryVoltage(String.format("%.1f", voltage));
+			batteryStatus.setBatteryVoltage(String.format("%.2f", voltage));
 		}
 		}
 	}
+	
 
 	private void decodeDiagnosticData(byte[] payload, DecodedMessage decode) {
 		int productType = payload[0] & 0xFF;
@@ -168,6 +172,8 @@ public class TekMessageDecoder {
 
 		case 8, 23, 24, 27, 28 -> { // TEK822V1, TEK822V1BTN, TEK822V2, TEK898V2, TEK898V1
 			double fwVersion = Double.parseDouble(decode.getUnitInfo().getFirmwareRevision());
+			printHex(payload, 20, 1);
+			printHex(payload, 21, 1);
 			if (fwVersion > 3.0) {
 				diagnosticInfo.setEnergyUsedLastContactMaSeconds(((payload[20] & 0xFF) << 8) | (payload[21] & 0xFF));
 			} else {
@@ -194,11 +200,17 @@ public class TekMessageDecoder {
 		// Minuti: byte 25 (es: 0x0F = 15)
 		int rtcHours = payload[19] & 0x1F;
 		int rtcMinutes = payload[25] & 0xFF;
+		
+		printHex(payload, 19, 1);
+		System.out.println(rtcHours);
+		printHex(payload, 25, 1);
+		System.out.println(rtcMinutes);
 
 		// Costruisci timestamp base: data dal server + ora/minuti dal RTC del device
 		LocalDate serverDate = Instant.ofEpochMilli(msg.getServerTimeInMs()).atZone(ZoneOffset.UTC).toLocalDate();
 		LocalTime rtcTime = LocalTime.of(rtcHours, rtcMinutes, 0);
 		long baseTimestampMs = serverDate.atTime(rtcTime).atZone(ZoneOffset.UTC).toInstant().toEpochMilli();
+		System.out.println(baseTimestampMs + "  #  " + loggerSpeedMs);
 
 		// Gestione attraversamento mezzanotte: se RTC è molto avanti rispetto al
 		// server time (es: RTC=23:50, server=00:10) il device ha misurato ieri
@@ -206,6 +218,7 @@ public class TekMessageDecoder {
 		if (baseTimestampMs - serverTimeMs > 12 * 60 * 60 * 1000) {
 			baseTimestampMs -= 24 * 60 * 60 * 1000; // sottrai un giorno
 		}
+		System.out.println(baseTimestampMs);
 
 		List<DecodedMessage.MeasurementData> measurements = new ArrayList<>();
 
@@ -252,38 +265,43 @@ public class TekMessageDecoder {
 	}
 
 	private long calculateLoggerSpeed(int msgType, byte[] payload, DecodedMessage decode) {
-        long loggerSpeedMs;
-        
-        if (msgType == 8) {
-            if (Boolean.TRUE.equals(decode.getContactReason().getManual())) {
-                // NOTE: in this case the logger runs at 1sec
-                loggerSpeedMs = 1 * 1000;
-            } else if ((payload[23] & 0x80) == 0) {
-                loggerSpeedMs = 1 * 60 * 1000;
-            } else {
-                loggerSpeedMs = 15 * 60 * 1000;
-            }
-        } else if (msgType == 9) {
-            if ((payload[23] & 0x80) == 0) {
-                loggerSpeedMs = 1 * 60 * 1000;
-            } else {
-                loggerSpeedMs = 15 * 60 * 1000;
-            }
-        } else if (msgType == 4) {
-            loggerSpeedMs = payload[23] & 0x7F;
-            if (loggerSpeedMs == 0) {
-                if ((payload[23] & 0x80) == 0) {
-                    loggerSpeedMs = 1 * 60 * 1000;
-                } else {
-                    loggerSpeedMs = 15 * 60 * 1000;
-                }
-            } else {
-                loggerSpeedMs = loggerSpeedMs * 15 * 60 * 1000;
-            }
-        } else {
-            loggerSpeedMs = 15 * 60 * 1000; // Default
-        }
-        
-        return loggerSpeedMs;
-    }
+		long loggerSpeedMs;
+
+		if (msgType == 8) {
+			if (Boolean.TRUE.equals(decode.getContactReason().getManual())) {
+				// NOTE: in this case the logger runs at 1sec
+				loggerSpeedMs = 1 * 1000;
+			} else if ((payload[23] & 0x80) == 0) {
+				loggerSpeedMs = 1 * 60 * 1000;
+			} else {
+				loggerSpeedMs = 15 * 60 * 1000;
+			}
+		} else if (msgType == 9) {
+			if ((payload[23] & 0x80) == 0) {
+				loggerSpeedMs = 1 * 60 * 1000;
+			} else {
+				loggerSpeedMs = 15 * 60 * 1000;
+			}
+		} else if (msgType == 4) {
+			loggerSpeedMs = payload[23] & 0x7F;
+			if (loggerSpeedMs == 0) {
+				if ((payload[23] & 0x80) == 0) {
+					loggerSpeedMs = 1 * 60 * 1000;
+				} else {
+					loggerSpeedMs = 15 * 60 * 1000;
+				}
+			} else {
+				loggerSpeedMs = loggerSpeedMs * 15 * 60 * 1000;
+			}
+		} else {
+			loggerSpeedMs = 15 * 60 * 1000; // Default
+		}
+
+		return loggerSpeedMs;
+	}
+	
+	public void printHex(byte[] payload, int from, int len) {
+		System.out.println("Hex="+HexFormat.of().formatHex(payload));
+		System.out.println("Hex="+HexFormat.of().formatHex(payload, from, from+len)); 
+	}
 }

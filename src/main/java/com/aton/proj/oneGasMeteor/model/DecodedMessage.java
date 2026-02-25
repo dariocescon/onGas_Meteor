@@ -158,7 +158,8 @@ public class DecodedMessage {
 		private Boolean serverRequest;
 		private Boolean alarm;
 		private Boolean scheduled;
-		private Boolean activation;
+		private Boolean dynamic2;
+		private Boolean dynamic1;
 
 		public Boolean getTspRequested() {
 			return tspRequested;
@@ -208,23 +209,6 @@ public class DecodedMessage {
 			this.scheduled = scheduled;
 		}
 
-		public Boolean getActivation() {
-			return activation;
-		}
-
-		public void setActivation(Boolean activation) {
-			this.activation = activation;
-		}
-	}
-
-	public static class AlarmStatus {
-		private Boolean dynamic2;
-		private Boolean dynamic1;
-		private Boolean bund;
-		private Boolean static3;
-		private Boolean static2;
-		private Boolean static1;
-
 		public Boolean getDynamic2() {
 			return dynamic2;
 		}
@@ -240,7 +224,23 @@ public class DecodedMessage {
 		public void setDynamic1(Boolean dynamic1) {
 			this.dynamic1 = dynamic1;
 		}
+	}
 
+	public static class AlarmStatus {
+		private Boolean active;
+		private Boolean bund;
+		private Boolean static3;
+		private Boolean static2;
+		private Boolean static1;
+
+		public Boolean getActive() {
+			return active;
+		}
+		
+		public void setActive(Boolean active) {
+			this.active = active;
+		}
+		
 		public Boolean getBund() {
 			return bund;
 		}
@@ -319,7 +319,7 @@ public class DecodedMessage {
 	public static class DiagnosticInfo {
 		private Boolean rtcSet;
 		private Boolean lteActive;
-		private Boolean activation;
+//		private Boolean activation;
 		private Integer energyUsedLastContactMaSeconds;
 		private Integer lastErrorCode;
 		private Integer messageCount;
@@ -341,13 +341,13 @@ public class DecodedMessage {
 			this.lteActive = lteActive;
 		}
 		
-		public Boolean getActivation() {
-			return activation;
-		}
-
-		public void setActivation(Boolean activation) {
-			this.activation = activation;
-		}
+//		public Boolean getActivation() {
+//			return activation;
+//		}
+//
+//		public void setActivation(Boolean activation) {
+//			this.activation = activation;
+//		}
 
 		public Integer getEnergyUsedLastContactMaSeconds() {
 			return energyUsedLastContactMaSeconds;
