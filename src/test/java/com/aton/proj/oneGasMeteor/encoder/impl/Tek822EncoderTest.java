@@ -2,6 +2,7 @@ package com.aton.proj.oneGasMeteor.encoder.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,12 +35,11 @@ class Tek822EncoderTest {
 	}
 
 	/**
-	 * Codifica un singolo comando e ritorna l'EncodedCommand. Verifica anche che il
-	 * risultato contenga esattamente 1 comando.
+	 * Codifica un singolo comando e ritorna il primo EncodedCommand.
+	 * Nota: per S-commands il risultato conterra anche il REBOOT auto-appended.
 	 */
 	private TelemetryResponse.EncodedCommand encodeSingle(DeviceCommand cmd) {
 		List<TelemetryResponse.EncodedCommand> result = encoder.encode(List.of(cmd));
-		assertEquals(1, result.size());
 		return result.get(0);
 	}
 
@@ -602,8 +602,124 @@ class Tek822EncoderTest {
 
 		ControllerUtils.enrichResponseWithConcatenatedCommands(response);
 
-		assertEquals("TEK822,S0=20,R6=02", response.getConcatenatedCommandsAscii());
-		assertHexMatchesAscii("TEK822,S0=20,R6=02", response.getConcatenatedCommandsHex());
+		// SET_INTERVAL e un S-command → auto-append R3=ACTIVE
+		assertEquals("TEK822,S0=20,R6=02,R3=ACTIVE", response.getConcatenatedCommandsAscii());
+		assertHexMatchesAscii("TEK822,S0=20,R6=02,R3=ACTIVE", response.getConcatenatedCommandsHex());
+	}
+
+	// ================ Auto-append R3=ACTIVE (ensureRebootIfNeeded) ================
+	// Regola protocollo TEK822: i comandi S (settings registers) richiedono R3=ACTIVE
+	// per applicare le modifiche. L'encoder lo aggiunge automaticamente se mancante.
+
+	@Test
+	void testAutoAppend_singleSCommand() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "SET_INTERVAL");
+		cmd.addParameter("interval", 1); // S0=84
+
+		List<TelemetryResponse.EncodedCommand> result = encoder.encode(List.of(cmd));
+
+		assertEquals(2, result.size());
+		assertEquals("SET_INTERVAL", result.get(0).getCommandType());
+		assertEquals("REBOOT", result.get(1).getCommandType());
+
+		String concatenated = ControllerUtils.commandsToAsciiString(result);
+		assertEquals("TEK822,S0=84,R3=ACTIVE", concatenated);
+	}
+
+	@Test
+	void testAutoAppend_multipleSCommands() {
+		DeviceCommand cmd1 = new DeviceCommand("dev1", "TEK822V2", "SET_INTERVAL");
+		cmd1.addParameter("interval", 1);
+
+		DeviceCommand cmd2 = new DeviceCommand("dev1", "TEK822V2", "SET_LISTEN");
+		cmd2.addParameter("listenMinutes", 5);
+
+		List<TelemetryResponse.EncodedCommand> result = encoder.encode(List.of(cmd1, cmd2));
+
+		assertEquals(3, result.size());
+		assertEquals("SET_INTERVAL", result.get(0).getCommandType());
+		assertEquals("SET_LISTEN", result.get(1).getCommandType());
+		assertEquals("REBOOT", result.get(2).getCommandType());
+
+		String concatenated = ControllerUtils.commandsToAsciiString(result);
+		assertEquals("TEK822,S0=84,S1=01,R3=ACTIVE", concatenated);
+	}
+
+	@Test
+	void testAutoAppend_explicitReboot_noDuplicate() {
+		DeviceCommand cmd1 = new DeviceCommand("dev1", "TEK822V2", "SET_INTERVAL");
+		cmd1.addParameter("interval", 1);
+
+		DeviceCommand cmd2 = new DeviceCommand("dev1", "TEK822V2", "REBOOT");
+
+		List<TelemetryResponse.EncodedCommand> result = encoder.encode(List.of(cmd1, cmd2));
+
+		assertEquals(2, result.size());
+		assertEquals("SET_INTERVAL", result.get(0).getCommandType());
+		assertEquals("REBOOT", result.get(1).getCommandType());
+	}
+
+	@Test
+	void testAutoAppend_onlyRCommands_noReboot() {
+		DeviceCommand cmd1 = new DeviceCommand("dev1", "TEK822V2", "REQUEST_STATUS");
+		DeviceCommand cmd2 = new DeviceCommand("dev1", "TEK822V2", "REQUEST_GPS");
+		cmd2.addParameter("timeout", 60);
+
+		List<TelemetryResponse.EncodedCommand> result = encoder.encode(List.of(cmd1, cmd2));
+
+		assertEquals(2, result.size());
+		assertTrue(result.stream().noneMatch(c -> "REBOOT".equals(c.getCommandType())));
+	}
+
+	@Test
+	void testAutoAppend_mixedSAndRCommands() {
+		DeviceCommand cmd1 = new DeviceCommand("dev1", "TEK822V2", "SET_INTERVAL");
+		cmd1.addParameter("interval", 1);
+
+		DeviceCommand cmd2 = new DeviceCommand("dev1", "TEK822V2", "REQUEST_STATUS");
+
+		List<TelemetryResponse.EncodedCommand> result = encoder.encode(List.of(cmd1, cmd2));
+
+		assertEquals(3, result.size());
+		assertEquals("REBOOT", result.get(2).getCommandType());
+
+		String concatenated = ControllerUtils.commandsToAsciiString(result);
+		assertEquals("TEK822,S0=84,R6=02,R3=ACTIVE", concatenated);
+	}
+
+	@Test
+	void testAutoAppend_customPassword() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "SET_INTERVAL");
+		cmd.addParameter("interval", 1);
+		cmd.addParameter("password", "MYPASS");
+
+		List<TelemetryResponse.EncodedCommand> result = encoder.encode(List.of(cmd));
+
+		String concatenated = ControllerUtils.commandsToAsciiString(result);
+		assertEquals("MYPASS,S0=84,R3=ACTIVE", concatenated);
+	}
+
+	@Test
+	void testAutoAppend_standaloneReboot_noDuplicate() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "REBOOT");
+
+		List<TelemetryResponse.EncodedCommand> result = encoder.encode(List.of(cmd));
+
+		assertEquals(1, result.size());
+		assertEquals("REBOOT", result.get(0).getCommandType());
+	}
+
+	@Test
+	void testAutoAppend_syntheticCommandHasNullId() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "SET_LISTEN");
+		cmd.setId(42L);
+		cmd.addParameter("listenMinutes", 5);
+
+		List<TelemetryResponse.EncodedCommand> result = encoder.encode(List.of(cmd));
+
+		assertEquals(2, result.size());
+		assertEquals(42L, result.get(0).getCommandId());
+		assertNull(result.get(1).getCommandId());
 	}
 
 	// ================ getEncoderName / getSupportedDeviceTypes ================

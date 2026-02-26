@@ -15,6 +15,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Encoder per comandi destinati a dispositivi Tekelek TEK822 e compatibili
@@ -47,6 +48,11 @@ public class Tek822Encoder implements DeviceEncoder {
 	public static final String CMD_SET_APN = "SET_APN"; // S12/S13/S14
 	public static final String CMD_SET_SERVER = "SET_SERVER"; // S15/S16
 
+	// S-command types che richiedono R3=ACTIVE (reboot) per applicare le modifiche
+	private static final Set<String> S_COMMAND_TYPES = Set.of(
+			CMD_SET_INTERVAL, CMD_SET_LISTEN, CMD_SET_SCHEDULE,
+			CMD_SET_ALARM_THRESHOLD, CMD_SET_APN, CMD_SET_SERVER);
+
 	// Default password (sezione 3.9 del manuale)
 	private static final String DEFAULT_PASSWORD = "TEK822";
 
@@ -57,9 +63,15 @@ public class Tek822Encoder implements DeviceEncoder {
 
 	@Override
 	public List<TelemetryResponse.EncodedCommand> encode(List<DeviceCommand> commands) {
+		// Copia mutabile — l'input potrebbe essere immutabile (List.of(), .toList())
+		List<DeviceCommand> mutableCommands = new ArrayList<>(commands);
+
+		// Auto-append R3=ACTIVE se ci sono S-commands e nessun REBOOT esplicito
+		ensureRebootIfNeeded(mutableCommands);
+
 		List<TelemetryResponse.EncodedCommand> encodedCommands = new ArrayList<>();
 
-		for (DeviceCommand command : commands) {
+		for (DeviceCommand command : mutableCommands) {
 			try {
 				encodeCommand(command);
 
@@ -79,6 +91,44 @@ public class Tek822Encoder implements DeviceEncoder {
 		}
 
 		return encodedCommands;
+	}
+
+	/**
+	 * Se la lista contiene comandi S (settings registers), verifica che sia
+	 * presente anche un REBOOT (R3=ACTIVE). Se mancante, ne aggiunge uno
+	 * sintetico in coda. (Sezione 3.20 del manuale TEK822)
+	 */
+	private void ensureRebootIfNeeded(List<DeviceCommand> commands) {
+		boolean hasSCommand = commands.stream()
+				.anyMatch(cmd -> S_COMMAND_TYPES.contains(cmd.getCommandType()));
+
+		if (!hasSCommand) {
+			return;
+		}
+
+		boolean hasReboot = commands.stream()
+				.anyMatch(cmd -> CMD_REBOOT.equals(cmd.getCommandType()));
+
+		if (hasReboot) {
+			log.debug("  S-commands detected with explicit REBOOT already present");
+			return;
+		}
+
+		// Estrai password dal primo S-command trovato
+		String password = commands.stream()
+				.filter(cmd -> S_COMMAND_TYPES.contains(cmd.getCommandType()))
+				.findFirst()
+				.map(cmd -> cmd.getParameters().getOrDefault("password", DEFAULT_PASSWORD).toString())
+				.orElse(DEFAULT_PASSWORD);
+
+		// Crea comando sintetico REBOOT (id = null, non proviene dal DB)
+		DeviceCommand firstCmd = commands.get(0);
+		DeviceCommand rebootCmd = new DeviceCommand(firstCmd.getDeviceId(), firstCmd.getDeviceType(), CMD_REBOOT);
+		rebootCmd.addParameter("password", password);
+
+		commands.add(rebootCmd);
+
+		log.info("  Auto-appended REBOOT (R3=ACTIVE) because S-commands were detected");
 	}
 
 	/**

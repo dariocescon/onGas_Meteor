@@ -152,9 +152,11 @@ public class TelemetryService {
 	}
 	
 	public void markCommandsAsSent(List<EncodedCommand> commands) {
-		// Marca i comandi come SENT
+		// Marca i comandi come SENT (skip comandi sintetici con id null, es. auto-appended REBOOT)
 		for (EncodedCommand cmd : commands) {
+			if (cmd.getCommandId() != null) {
 			commandRepository.markAsSent(cmd.getCommandId());
+			}
 		}
 	}
 
