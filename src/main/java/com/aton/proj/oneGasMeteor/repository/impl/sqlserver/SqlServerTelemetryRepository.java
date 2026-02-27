@@ -30,7 +30,7 @@ public class SqlServerTelemetryRepository implements TelemetryRepository {
 	public SqlServerTelemetryRepository(TelemetryJpaRepository jpaRepository, ObjectMapper objectMapper) {
 		this.jpaRepository = jpaRepository;
 		this.objectMapper = objectMapper;
-		log.info("✅ SqlServerTelemetryRepository initialized");
+		log.info(" SqlServerTelemetryRepository initialized");
 	}
 
 	@Override
@@ -51,12 +51,12 @@ public class SqlServerTelemetryRepository implements TelemetryRepository {
 			extractMainFields(entity, decoded);
 
 			TelemetryEntity saved = jpaRepository.save(entity);
-			log.debug("💾 Saved telemetry: id={}, deviceId={}", saved.getId(), deviceId);
+			log.debug(" Saved telemetry: id={}, deviceId={}", saved.getId(), deviceId);
 
 			return saved;
 
 		} catch (Exception e) {
-			log.error("❌ Failed to save telemetry for device: {}", deviceId, e);
+			log.error(" Failed to save telemetry for device: {}", deviceId, e);
 			throw new RuntimeException("Failed to save telemetry", e);
 		}
 	}
@@ -135,6 +135,6 @@ public class SqlServerTelemetryRepository implements TelemetryRepository {
 	@Transactional
 	public void deleteOlderThan(LocalDateTime threshold) {
 		int deleted = jpaRepository.deleteByReceivedAtBefore(threshold);
-		log.info("🗑️  Deleted {} old telemetry records before {}", deleted, threshold);
+		log.info("  Deleted {} old telemetry records before {}", deleted, threshold);
 	}
 }

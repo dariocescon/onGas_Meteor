@@ -30,7 +30,7 @@
 //    public MongoCommandRepository(CommandMongoRepository mongoRepository, ObjectMapper objectMapper) {
 //        this.mongoRepository = mongoRepository;
 //        this.objectMapper = objectMapper;
-//        log.info("✅ MongoCommandRepository initialized");
+//        log.info(" MongoCommandRepository initialized");
 //    }
 //    
 //    @Override
@@ -48,13 +48,13 @@
 //            }
 //            
 //            CommandDocument saved = mongoRepository.save(doc);
-//            log.debug("💾 Saved command to MongoDB: id={}, type={}, deviceId={}", 
+//            log.debug(" Saved command to MongoDB: id={}, type={}, deviceId={}", 
 //                saved.getId(), saved.getCommandType(), saved.getDeviceId());
 //            
 //            return toCommandEntity(saved);
 //            
 //        } catch (Exception e) {
-//            log.error("❌ Failed to save command to MongoDB for device: {}", command.getDeviceId(), e);
+//            log.error(" Failed to save command to MongoDB for device: {}", command.getDeviceId(), e);
 //            throw new RuntimeException("Failed to save command", e);
 //        }
 //    }
@@ -108,7 +108,7 @@
 //        mongoRepository.findById(commandId.toString()).ifPresent(doc -> {
 //            doc.setStatus(status.name());
 //            mongoRepository.save(doc);
-//            log.debug("🔄 Updated command {} status to {}", commandId, status);
+//            log.debug(" Updated command {} status to {}", commandId, status);
 //        });
 //    }
 //    
@@ -118,7 +118,7 @@
 //            doc.setStatus("SENT");
 //            doc.setSentAt(LocalDateTime.now());
 //            mongoRepository.save(doc);
-//            log.debug("📤 Marked command {} as SENT", commandId);
+//            log.debug(" Marked command {} as SENT", commandId);
 //        });
 //    }
 //    
@@ -128,7 +128,7 @@
 //            doc.setStatus("DELIVERED");
 //            doc.setDeliveredAt(LocalDateTime.now());
 //            mongoRepository.save(doc);
-//            log.debug("✅ Marked command {} as DELIVERED", commandId);
+//            log.debug(" Marked command {} as DELIVERED", commandId);
 //        });
 //    }
 //    
@@ -138,7 +138,7 @@
 //            doc.setStatus("FAILED");
 //            doc.setErrorMessage(errorMessage);
 //            mongoRepository.save(doc);
-//            log.warn("❌ Marked command {} as FAILED: {}", commandId, errorMessage);
+//            log.warn(" Marked command {} as FAILED: {}", commandId, errorMessage);
 //        });
 //    }
 //    
@@ -147,7 +147,7 @@
 //        mongoRepository.findById(commandId.toString()).ifPresent(doc -> {
 //            doc.setRetryCount(doc.getRetryCount() + 1);
 //            mongoRepository.save(doc);
-//            log.debug("🔄 Incremented retry count for command {}: {}/{}", 
+//            log.debug(" Incremented retry count for command {}: {}/{}", 
 //                commandId, doc.getRetryCount(), doc.getMaxRetries());
 //        });
 //    }
@@ -156,6 +156,6 @@
 //    public void deleteOldCompletedCommands(int daysOld) {
 //        LocalDateTime threshold = LocalDateTime.now().minusDays(daysOld);
 //        long deleted = mongoRepository.deleteOldCompleted(threshold);
-//        log.info("🗑️  Deleted {} old completed commands before {}", deleted, threshold);
+//        log.info("  Deleted {} old completed commands before {}", deleted, threshold);
 //    }
 //}

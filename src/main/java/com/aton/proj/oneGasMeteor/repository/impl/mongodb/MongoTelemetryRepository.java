@@ -30,7 +30,7 @@
 //    public MongoTelemetryRepository(TelemetryMongoRepository mongoRepository, ObjectMapper objectMapper) {
 //        this.mongoRepository = mongoRepository;
 //        this.objectMapper = objectMapper;
-//        log.info("✅ MongoTelemetryRepository initialized");
+//        log.info(" MongoTelemetryRepository initialized");
 //    }
 //    
 //    @Override
@@ -52,13 +52,13 @@
 //            extractMainFields(doc, decoded);
 //            
 //            TelemetryDocument saved = mongoRepository.save(doc);
-//            log.debug("💾 Saved telemetry to MongoDB: id={}, deviceId={}", saved.getId(), deviceId);
+//            log.debug(" Saved telemetry to MongoDB: id={}, deviceId={}", saved.getId(), deviceId);
 //            
 //            // Converti in TelemetryEntity per mantenere compatibilità con l'interface
 //            return toTelemetryEntity(saved);
 //            
 //        } catch (Exception e) {
-//            log.error("❌ Failed to save telemetry to MongoDB for device: {}", deviceId, e);
+//            log.error(" Failed to save telemetry to MongoDB for device: {}", deviceId, e);
 //            throw new RuntimeException("Failed to save telemetry", e);
 //        }
 //    }
@@ -170,6 +170,6 @@
 //    @Override
 //    public void deleteOlderThan(LocalDateTime threshold) {
 //        long deleted = mongoRepository.deleteByReceivedAtBefore(threshold);
-//        log.info("🗑️  Deleted {} old telemetry documents before {}", deleted, threshold);
+//        log.info("  Deleted {} old telemetry documents before {}", deleted, threshold);
 //    }
 //}

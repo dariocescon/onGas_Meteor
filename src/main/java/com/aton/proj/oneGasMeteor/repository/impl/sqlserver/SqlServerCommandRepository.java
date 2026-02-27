@@ -30,7 +30,7 @@ public class SqlServerCommandRepository implements CommandRepository {
 	public SqlServerCommandRepository(CommandJpaRepository jpaRepository, ObjectMapper objectMapper) {
 		this.jpaRepository = jpaRepository;
 		this.objectMapper = objectMapper;
-		log.info("✅ SqlServerCommandRepository initialized");
+		log.info("  SqlServerCommandRepository initialized");
 	}
 
 	@Override
@@ -42,17 +42,18 @@ public class SqlServerCommandRepository implements CommandRepository {
 			// Serializza parametri in JSON
 			if (command.getParameters() != null && !command.getParameters().isEmpty()) {
 				String paramsJson = objectMapper.writeValueAsString(command.getParameters());
+				System.err.println(paramsJson);
 				entity.setCommandParamsJson(paramsJson);
 			}
 
 			CommandEntity saved = jpaRepository.save(entity);
-			log.debug("💾 Saved command: id={}, type={}, deviceId={}", saved.getId(), saved.getCommandType(),
+			log.debug("  Saved command: id={}, type={}, deviceId={}", saved.getId(), saved.getCommandType(),
 					saved.getDeviceId());
 
 			return saved;
 
 		} catch (Exception e) {
-			log.error("❌ Failed to save command for device: {}", command.getDeviceId(), e);
+			log.error("  Failed to save command for device: {}", command.getDeviceId(), e);
 			throw new RuntimeException("Failed to save command", e);
 		}
 	}

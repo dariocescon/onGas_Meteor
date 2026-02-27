@@ -172,8 +172,8 @@ public class TekMessageDecoder {
 
 		case 8, 23, 24, 27, 28 -> { // TEK822V1, TEK822V1BTN, TEK822V2, TEK898V2, TEK898V1
 			double fwVersion = Double.parseDouble(decode.getUnitInfo().getFirmwareRevision());
-			printHex(payload, 20, 1);
-			printHex(payload, 21, 1);
+//			printHex(payload, 20, 1);
+//			printHex(payload, 21, 1);
 			if (fwVersion > 3.0) {
 				diagnosticInfo.setEnergyUsedLastContactMaSeconds(((payload[20] & 0xFF) << 8) | (payload[21] & 0xFF));
 			} else {
@@ -201,9 +201,9 @@ public class TekMessageDecoder {
 		int rtcHours = payload[19] & 0x1F;
 		int rtcMinutes = payload[25] & 0xFF;
 		
-		printHex(payload, 19, 1);
+//		printHex(payload, 19, 1);
 		System.out.println(rtcHours);
-		printHex(payload, 25, 1);
+//		printHex(payload, 25, 1);
 		System.out.println(rtcMinutes);
 
 		// Costruisci timestamp base: data dal server + ora/minuti dal RTC del device
@@ -300,8 +300,8 @@ public class TekMessageDecoder {
 		return loggerSpeedMs;
 	}
 	
-	public void printHex(byte[] payload, int from, int len) {
-		System.out.println("Hex="+HexFormat.of().formatHex(payload));
-		System.out.println("Hex="+HexFormat.of().formatHex(payload, from, from+len)); 
-	}
+//	public void printHex(byte[] payload, int from, int len) {
+//		System.out.println("Hex="+HexFormat.of().formatHex(payload));
+//		System.out.println("Hex="+HexFormat.of().formatHex(payload, from, from+len)); 
+//	}
 }

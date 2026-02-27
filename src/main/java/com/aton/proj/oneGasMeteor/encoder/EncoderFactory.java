@@ -24,7 +24,7 @@ public class EncoderFactory {
         
         log.info("🔧 EncoderFactory initialized with {} encoders", encoders.size());
         encoders.forEach(encoder -> 
-            log.info("   ✅ {} supports: {}", encoder.getEncoderName(), encoder.getSupportedDeviceTypes())
+            log.info("   {} supports: {}", encoder.getEncoderName(), encoder.getSupportedDeviceTypes())
         );
     }
     
@@ -33,19 +33,19 @@ public class EncoderFactory {
      */
     public DeviceEncoder getEncoder(String deviceType) {
         if (deviceType == null || deviceType.isEmpty()) {
-            log.warn("⚠️  Null/empty device type, using fallback encoder");
+            log.warn("  Null/empty device type, using fallback encoder");
             return fallbackEncoder;
         }
         
         for (DeviceEncoder encoder : encoders) {
             if (encoder.canEncode(deviceType)) {
-                log.debug("✅ Selected encoder: {} for device type: {}", 
+                log.debug(" Selected encoder: {} for device type: {}", 
                     encoder.getEncoderName(), deviceType);
                 return encoder;
             }
         }
         
-        log.warn("⚠️  No encoder found for device type: {}, using fallback", deviceType);
+        log.warn("  No encoder found for device type: {}, using fallback", deviceType);
         return fallbackEncoder;
     }
 }

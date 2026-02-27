@@ -125,7 +125,7 @@ public class TelemetryService {
 
 			// 6. RECUPERA COMANDI PENDENTI PER QUESTO DEVICE
 			List<CommandEntity> pendingCommands = commandRepository.findPendingCommands(deviceId);
-			log.debug("   📋 Found {} pending commands for device {}", pendingCommands.size(), deviceId);
+			log.debug("   Found {} pending commands for device {}", pendingCommands.size(), deviceId);
 
 			// 7. CODIFICA COMANDI (se presenti)
 			List<TelemetryResponse.EncodedCommand> encodedCommands = new ArrayList<>();
@@ -146,7 +146,7 @@ public class TelemetryService {
 			return response;
 
 		} catch (Exception e) {
-			log.error("❌ Error processing telemetry", e);
+			log.error("  Error processing telemetry", e);
 			throw new DecodingException("Failed to process telemetry: " + e.getMessage(), e);
 		}
 	}
@@ -216,12 +216,12 @@ public class TelemetryService {
 			// Codifica i comandi
 			List<TelemetryResponse.EncodedCommand> encodedCommands = encoder.encode(deviceCommands);
 
-			log.info("   📤 Encoded {} commands successfully", encodedCommands.size());
+			log.info("   Encoded {} commands successfully", encodedCommands.size());
 
 			return encodedCommands;
 
 		} catch (Exception e) {
-			log.error("❌ Failed to encode commands", e);
+			log.error(" Failed to encode commands", e);
 			return new ArrayList<>(); // Ritorna lista vuota invece di fallire
 		}
 	}
