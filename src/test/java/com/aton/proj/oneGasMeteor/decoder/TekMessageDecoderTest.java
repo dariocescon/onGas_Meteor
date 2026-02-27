@@ -745,4 +745,42 @@ public class TekMessageDecoderTest {
 		long result = invokeCalculateLoggerSpeed(6, payload, decoded);
 		assertEquals(900000L, result, "Tipo non gestito (6) deve restituire il default 15 min (900000 ms)");
 	}
+
+	// ====================== Full decode() – Message Type 16 ======================
+	// Sample payload from TEK 822 Logger NB-IoT/CAT-M1 User Manual (section 2.2.4)
+
+	@Test
+	void testDecodeFullMessage_type16() {
+		String hexString = "0801C1048013400866425031171376104B2C38393838323339303030303032383839353233362C31393837352C33382C34302C31333631322C302C39313133312C31383030342C31322C3234303631392C31343336302C32382C60BB";
+		byte[] payload = ControllerUtils.hexStringToByteArray(hexString);
+
+		TekMessageDecoder decoder = new TekMessageDecoder();
+		TelemetryMessage msg = new TelemetryMessage(payload, hexString, LocalDateTime.now(), "test");
+
+		// Must not throw despite byte 15 having bit 4 set (message type 16)
+		DecodedMessage decoded = decoder.decode(msg);
+
+		assertNotNull(decoded);
+		assertEquals("TEK822V1", decoded.getUnitInfo().getProductType());
+		assertEquals("16", decoded.getMessageType());
+	}
+
+	// ====================== Full decode() – Message Type 17 ======================
+	// Sample payload from TEK 822 Logger NB-IoT/CAT-M1 User Manual (section 2.2.5)
+
+	@Test
+	void testDecodeFullMessage_type17() {
+		String hexString = "0801C104801340086642503117137611492C39352C3133343434322E302C353235352E393935304E2C30303833322E34343137572C312E392C3132372E382C322C302E30302C302E302C302E302C3032313031352C30342C8843";
+		byte[] payload = ControllerUtils.hexStringToByteArray(hexString);
+
+		TekMessageDecoder decoder = new TekMessageDecoder();
+		TelemetryMessage msg = new TelemetryMessage(payload, hexString, LocalDateTime.now(), "test");
+
+		// Must not throw despite byte 15 having bit 4 set (message type 17)
+		DecodedMessage decoded = decoder.decode(msg);
+
+		assertNotNull(decoded);
+		assertEquals("TEK822V1", decoded.getUnitInfo().getProductType());
+		assertEquals("17", decoded.getMessageType());
+	}
 }
