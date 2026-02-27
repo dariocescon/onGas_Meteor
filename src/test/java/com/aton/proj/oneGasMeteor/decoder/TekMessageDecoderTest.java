@@ -745,4 +745,47 @@ public class TekMessageDecoderTest {
 		long result = invokeCalculateLoggerSpeed(6, payload, decoded);
 		assertEquals(900000L, result, "Tipo non gestito (6) deve restituire il default 15 min (900000 ms)");
 	}
+
+	// ====================== Full decode() – Message Type 16 ======================
+	// Sample payload from TEK 822 Logger NB-IoT/CAT-M1 User Manual (section 2.2.4)
+	@Test
+	void testDecodeFullMessage_type16() {
+		String hexString = "18020344891936086443104798705410462C38393838323830363636303031303637353334382C3435323237332C302C38302C323335352C31382C35383937342C3732362C362C33393439362C313639362C36302C7EE0";
+		byte[] payload = ControllerUtils.hexStringToByteArray(hexString);
+		TekMessageDecoder decoder = new TekMessageDecoder();
+		TelemetryMessage msg = new TelemetryMessage(payload, hexString, LocalDateTime.now(), "test");
+		// Must not throw despite byte 15 having bit 4 set (message type 16)
+		DecodedMessage decoded = decoder.decode(msg);
+		assertNotNull(decoded);
+		assertEquals("TEK822V2", decoded.getUnitInfo().getProductType());
+		assertEquals("16", decoded.getMessageType());
+	}
+
+	// ====================== Full decode() – Message Type 17 ======================
+	// Sample payload from TEK 822 Logger NB-IoT/CAT-M1 User Manual (section 2.2.5)
+	@Test
+	void testDecodeFullMessage_type17() {
+		String hexString = "0801C104801340086642503117137611492C39352C3133343434322E302C353235352E393935304E2C30303833322E34343137572C312E392C3132372E382C322C302E30302C302E302C302E302C3032313031352C30342C8843";
+		byte[] payload = ControllerUtils.hexStringToByteArray(hexString);
+		TekMessageDecoder decoder = new TekMessageDecoder();
+		TelemetryMessage msg = new TelemetryMessage(payload, hexString, LocalDateTime.now(), "test");
+		// Must not throw despite byte 15 having bit 4 set (message type 17)
+		DecodedMessage decoded = decoder.decode(msg);
+		assertNotNull(decoded);
+		assertEquals("TEK822V1", decoded.getUnitInfo().getProductType());
+		assertEquals("17", decoded.getMessageType());
+	}
+
+	@Test
+	void testDecodeFullMessage_type4() {
+		String hexString = "180A640188117C0862406075927406047B0078773652FF84002100721E31000161E0860000112233445047B00005200002C84013000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F594A4E29F30A5029F30A5029F30A5229F30A5029F30A5029F30A4E29F30A5029F30A5029F30A5029F30A5029F30A5429F30A5629F30A5A29F30A5629F30A5229F30A4E29F30A4829F30A4629F30A4229F30A4229F30000000000000000000000000000000000000000000000000000000055F7";
+		byte[] payload = ControllerUtils.hexStringToByteArray(hexString);
+		TekMessageDecoder decoder = new TekMessageDecoder();
+		TelemetryMessage msg = new TelemetryMessage(payload, hexString, LocalDateTime.now(), "test");
+		// Must not throw despite byte 15 having bit 4 set (message type 17)
+		DecodedMessage decoded = decoder.decode(msg);
+		assertNotNull(decoded);
+		assertEquals("TEK822V2", decoded.getUnitInfo().getProductType());
+		assertEquals("4", decoded.getMessageType());
+	}
 }

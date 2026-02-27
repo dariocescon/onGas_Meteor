@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 
 import com.aton.proj.oneGasMeteor.exception.DecodingException;
@@ -21,7 +20,8 @@ public class TekMessageDecoder {
 		DecodedMessage decode = new DecodedMessage();
 		byte[] payload = msg.getPayload();
 
-		int declaredLength = ((payload[15] >> 4) & 0x03) * 256 + (payload[16] & 0xFF);
+		int declaredLength = ((payload[15] >> 6) & 0x03) * 256 + (payload[16] & 0xFF);
+//		System.err.println(declaredLength);
 		if (payload.length < 17 + declaredLength) {
 			throw new DecodingException("Payload troncato: attesi " + declaredLength + " bytes");
 		}
@@ -202,15 +202,15 @@ public class TekMessageDecoder {
 		int rtcMinutes = payload[25] & 0xFF;
 		
 //		printHex(payload, 19, 1);
-		System.out.println(rtcHours);
+//		System.out.println(rtcHours);
 //		printHex(payload, 25, 1);
-		System.out.println(rtcMinutes);
+//		System.out.println(rtcMinutes);
 
 		// Costruisci timestamp base: data dal server + ora/minuti dal RTC del device
 		LocalDate serverDate = Instant.ofEpochMilli(msg.getServerTimeInMs()).atZone(ZoneOffset.UTC).toLocalDate();
 		LocalTime rtcTime = LocalTime.of(rtcHours, rtcMinutes, 0);
 		long baseTimestampMs = serverDate.atTime(rtcTime).atZone(ZoneOffset.UTC).toInstant().toEpochMilli();
-		System.out.println(baseTimestampMs + "  #  " + loggerSpeedMs);
+//		System.out.println(baseTimestampMs + "  #  " + loggerSpeedMs);
 
 		// Gestione attraversamento mezzanotte: se RTC è molto avanti rispetto al
 		// server time (es: RTC=23:50, server=00:10) il device ha misurato ieri
@@ -218,7 +218,6 @@ public class TekMessageDecoder {
 		if (baseTimestampMs - serverTimeMs > 12 * 60 * 60 * 1000) {
 			baseTimestampMs -= 24 * 60 * 60 * 1000; // sottrai un giorno
 		}
-		System.out.println(baseTimestampMs);
 
 		List<DecodedMessage.MeasurementData> measurements = new ArrayList<>();
 
