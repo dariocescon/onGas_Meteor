@@ -150,12 +150,13 @@ public class TelemetryService {
 			throw new DecodingException("Failed to process telemetry: " + e.getMessage(), e);
 		}
 	}
-	
+
 	public void markCommandsAsSent(List<EncodedCommand> commands) {
-		// Marca i comandi come SENT (skip comandi sintetici con id null, es. auto-appended REBOOT)
+		// Marca i comandi come SENT (skip comandi sintetici con id null, es.
+		// auto-appended REBOOT)
 		for (EncodedCommand cmd : commands) {
 			if (cmd.getCommandId() != null) {
-			commandRepository.markAsSent(cmd.getCommandId());
+				commandRepository.markAsSent(cmd.getCommandId());
 			}
 		}
 	}
@@ -204,7 +205,7 @@ public class TelemetryService {
 			// Limita il numero di comandi per risposta
 			List<CommandEntity> commandsToSend = pendingCommands.stream().limit(maxCommandsPerResponse).toList();
 
-			log.debug("   🔧 Encoding {} commands for device type: {}", commandsToSend.size(), deviceType);
+			log.debug("   Encoding {} commands for device type: {}", commandsToSend.size(), deviceType);
 
 			// Seleziona l'encoder appropriato
 			DeviceEncoder encoder = encoderFactory.getEncoder(deviceType);

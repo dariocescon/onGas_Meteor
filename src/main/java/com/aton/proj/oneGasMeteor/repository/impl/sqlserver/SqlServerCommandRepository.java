@@ -80,7 +80,7 @@ public class SqlServerCommandRepository implements CommandRepository {
 		jpaRepository.findById(commandId).ifPresent(entity -> {
 			entity.setStatus(status);
 			jpaRepository.save(entity);
-			log.debug("🔄 Updated command {} status to {}", commandId, status);
+			log.debug(" Updated command {} status to {}", commandId, status);
 		});
 	}
 
@@ -91,7 +91,7 @@ public class SqlServerCommandRepository implements CommandRepository {
 			entity.setStatus(CommandEntity.CommandStatus.SENT);
 			entity.setSentAt(LocalDateTime.now());
 			jpaRepository.save(entity);
-			log.debug("📤 Marked command {} as SENT", commandId);
+			log.debug(" Marked command {} as SENT", commandId);
 		});
 	}
 
@@ -102,7 +102,7 @@ public class SqlServerCommandRepository implements CommandRepository {
 			entity.setStatus(CommandEntity.CommandStatus.DELIVERED);
 			entity.setDeliveredAt(LocalDateTime.now());
 			jpaRepository.save(entity);
-			log.debug("✅ Marked command {} as DELIVERED", commandId);
+			log.debug(" Marked command {} as DELIVERED", commandId);
 		});
 	}
 
@@ -113,7 +113,7 @@ public class SqlServerCommandRepository implements CommandRepository {
 			entity.setStatus(CommandEntity.CommandStatus.FAILED);
 			entity.setErrorMessage(errorMessage);
 			jpaRepository.save(entity);
-			log.warn("❌ Marked command {} as FAILED: {}", commandId, errorMessage);
+			log.warn(" Marked command {} as FAILED: {}", commandId, errorMessage);
 		});
 	}
 
@@ -123,7 +123,7 @@ public class SqlServerCommandRepository implements CommandRepository {
 		jpaRepository.findById(commandId).ifPresent(entity -> {
 			entity.setRetryCount(entity.getRetryCount() + 1);
 			jpaRepository.save(entity);
-			log.debug("🔄 Incremented retry count for command {}: {}/{}", commandId, entity.getRetryCount(),
+			log.debug(" Incremented retry count for command {}: {}/{}", commandId, entity.getRetryCount(),
 					entity.getMaxRetries());
 		});
 	}
@@ -133,7 +133,7 @@ public class SqlServerCommandRepository implements CommandRepository {
 	public void deleteOldCompletedCommands(int daysOld) {
 		LocalDateTime threshold = LocalDateTime.now().minusDays(daysOld);
 		int deleted = jpaRepository.deleteOldCompleted(threshold);
-		log.info("🗑️  Deleted {} old completed commands before {}", deleted, threshold);
+		log.info("  Deleted {} old completed commands before {}", deleted, threshold);
 	}
 
 }
