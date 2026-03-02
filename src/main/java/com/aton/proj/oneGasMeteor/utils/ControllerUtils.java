@@ -177,15 +177,15 @@ public class ControllerUtils {
 		if (response.getCommands() != null && !response.getCommands().isEmpty()) {
 
 			// Genera comandi concatenati in HEX
-			String concatenatedHex = ControllerUtils.commandsToHexString(response.getCommands());
-			response.setConcatenatedCommandsHex(concatenatedHex);
+//			String concatenatedHex = ControllerUtils.commandsToHexString(response.getCommands());
+//			response.setConcatenatedCommandsHex(concatenatedHex);
+//			log.debug("  Commands HEX: {}", concatenatedHex);
 
 			// Genera comandi concatenati in ASCII (per leggibilità)
 			String concatenatedAscii = ControllerUtils.commandsToAsciiString(response.getCommands());
 			response.setConcatenatedCommandsAscii(concatenatedAscii);
 
 			log.info("  Sending {} commands: {}", response.getCommands().size(), concatenatedAscii);
-			log.debug("  Commands HEX: {}", concatenatedHex);
 		}
 	}
 }

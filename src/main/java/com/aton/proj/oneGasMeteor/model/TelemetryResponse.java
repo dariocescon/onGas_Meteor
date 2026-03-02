@@ -21,7 +21,7 @@ public class TelemetryResponse {
 	// Array di comandi (per backward compatibility e debug)
 	private List<EncodedCommand> commands;
 
-	private String concatenatedCommandsHex; // Formato HEX
+//	private String concatenatedCommandsHex; // Formato HEX
 	private String concatenatedCommandsAscii; // Formato ASCII leggibile
 
 	private String message;
@@ -98,13 +98,13 @@ public class TelemetryResponse {
 		this.commands = commands;
 	}
 
-	public String getConcatenatedCommandsHex() {
-		return concatenatedCommandsHex;
-	}
-
-	public void setConcatenatedCommandsHex(String concatenatedCommandsHex) {
-		this.concatenatedCommandsHex = concatenatedCommandsHex;
-	}
+//	public String getConcatenatedCommandsHex() {
+//		return concatenatedCommandsHex;
+//	}
+//
+//	public void setConcatenatedCommandsHex(String concatenatedCommandsHex) {
+//		this.concatenatedCommandsHex = concatenatedCommandsHex;
+//	}
 
 	public String getConcatenatedCommandsAscii() {
 		return concatenatedCommandsAscii;
