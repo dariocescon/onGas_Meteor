@@ -30,6 +30,60 @@ erDiagram
         int retry_count
         int max_retries
     }
+
+    DEVICE_SETTINGS {
+        bigint id PK
+        nvarchar device_id
+        nvarchar device_type
+        nvarchar raw_message
+        nvarchar settings_json
+        datetime2 received_at
+    }
+
+    DEVICE_STATISTICS {
+        bigint id PK
+        nvarchar device_id
+        nvarchar device_type
+        nvarchar raw_message
+        nvarchar iccid
+        bigint energy_used
+        int min_temperature
+        int max_temperature
+        int message_count
+        int delivery_fail_count
+        bigint total_send_time
+        bigint max_send_time
+        bigint min_send_time
+        bigint rssi_total
+        int rssi_valid_count
+        int rssi_fail_count
+        float average_send_time
+        float average_rssi
+        float delivery_success_rate
+        datetime2 received_at
+    }
+
+    DEVICE_LOCATIONS {
+        bigint id PK
+        nvarchar device_id
+        nvarchar device_type
+        nvarchar raw_message
+        float latitude
+        float longitude
+        nvarchar latitude_raw
+        nvarchar longitude_raw
+        float altitude
+        float speed_kmh
+        float speed_knots
+        float ground_heading
+        float horizontal_precision
+        time utc_time
+        nvarchar gps_date
+        int number_of_satellites
+        int time_to_fix_seconds
+        int gnss_positioning_mode
+        datetime2 received_at
+    }
     
     TELEMETRY_DATA ||--o{ DEVICE_COMMANDS : "device_id"
     
@@ -40,3 +94,12 @@ erDiagram
     
     DEVICE_COMMANDS }o--|| INDEXES : "idx_device_status"
     DEVICE_COMMANDS }o--|| INDEXES : "idx_created_at"
+
+    DEVICE_SETTINGS }o--|| INDEXES : "idx_ds_device_id"
+    DEVICE_SETTINGS }o--|| INDEXES : "idx_ds_received_at"
+
+    DEVICE_STATISTICS }o--|| INDEXES : "idx_dst_device_id"
+    DEVICE_STATISTICS }o--|| INDEXES : "idx_dst_received_at"
+
+    DEVICE_LOCATIONS }o--|| INDEXES : "idx_dl_device_id"
+    DEVICE_LOCATIONS }o--|| INDEXES : "idx_dl_received_at"

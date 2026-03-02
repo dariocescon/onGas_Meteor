@@ -17,6 +17,9 @@ import com.aton.proj.oneGasMeteor.decoder.MessageTypeParser;
 import com.aton.proj.oneGasMeteor.encoder.DeviceEncoder;
 import com.aton.proj.oneGasMeteor.encoder.EncoderFactory;
 import com.aton.proj.oneGasMeteor.entity.CommandEntity;
+import com.aton.proj.oneGasMeteor.entity.DeviceLocationEntity;
+import com.aton.proj.oneGasMeteor.entity.DeviceSettingsEntity;
+import com.aton.proj.oneGasMeteor.entity.DeviceStatisticsEntity;
 import com.aton.proj.oneGasMeteor.entity.TelemetryEntity;
 import com.aton.proj.oneGasMeteor.exception.DecodingException;
 import com.aton.proj.oneGasMeteor.model.DecodedMessage;
@@ -28,6 +31,9 @@ import com.aton.proj.oneGasMeteor.model.TelemetryMessage;
 import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
 import com.aton.proj.oneGasMeteor.model.TelemetryResponse.EncodedCommand;
 import com.aton.proj.oneGasMeteor.repository.CommandRepository;
+import com.aton.proj.oneGasMeteor.repository.DeviceLocationRepository;
+import com.aton.proj.oneGasMeteor.repository.DeviceSettingsRepository;
+import com.aton.proj.oneGasMeteor.repository.DeviceStatisticsRepository;
 import com.aton.proj.oneGasMeteor.repository.TelemetryRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -45,19 +51,28 @@ public class TelemetryService {
 	private final CommandRepository commandRepository;
 	private final MessageTypeParser messageTypeParser;
 	private final ObjectMapper objectMapper;
+	private final DeviceSettingsRepository deviceSettingsRepository;
+	private final DeviceStatisticsRepository deviceStatisticsRepository;
+	private final DeviceLocationRepository deviceLocationRepository;
 
 	@Value("${command.max.per.response:10}")
 	private int maxCommandsPerResponse;
 
 	public TelemetryService(DecoderFactory decoderFactory, EncoderFactory encoderFactory,
 			TelemetryRepository telemetryRepository, CommandRepository commandRepository,
-			MessageTypeParser messageTypeParser, ObjectMapper objectMapper) {
+			MessageTypeParser messageTypeParser, ObjectMapper objectMapper,
+			DeviceSettingsRepository deviceSettingsRepository,
+			DeviceStatisticsRepository deviceStatisticsRepository,
+			DeviceLocationRepository deviceLocationRepository) {
 		this.decoderFactory = decoderFactory;
 		this.encoderFactory = encoderFactory;
 		this.telemetryRepository = telemetryRepository;
 		this.commandRepository = commandRepository;
 		this.messageTypeParser = messageTypeParser;
 		this.objectMapper = objectMapper;
+		this.deviceSettingsRepository = deviceSettingsRepository;
+		this.deviceStatisticsRepository = deviceStatisticsRepository;
+		this.deviceLocationRepository = deviceLocationRepository;
 
 		log.info("TelemetryService initialized");
 	}
@@ -95,28 +110,28 @@ public class TelemetryService {
 				log.info("  Saved to database: id={}", savedEntity.getId());
 			}
 			case 6 -> {
-				// Settings response - parse e log
+				// Settings response - parse e salva nel DB
 				String settingsPayload = extractPayloadAfterHeader(hexData);
 				MessageType6Response settings = messageTypeParser.parseMessageType6(settingsPayload, deviceId,
 						deviceType);
-				log.info("  Received settings: {} parameters", settings.getSettings().size());
-				// TODO: Opzionalmente salva in una tabella device_settings
+				DeviceSettingsEntity savedSettings = deviceSettingsRepository.save(settings, hexData);
+				log.info("  Saved settings to database: id={}, parameters={}", savedSettings.getId(), settings.getSettings().size());
 			}
 			case 16 -> {
-				// ICCID & Statistics - parse e log
+				// ICCID & Statistics - parse e salva nel DB
 				String statsPayload = extractPayloadAfterHeader(hexData);
 				MessageType16Response stats = messageTypeParser.parseMessageType16(statsPayload, deviceId, deviceType);
-				log.info("  Received statistics: ICCID={}, Energy={}mAh", stats.getIccid(), stats.getEnergyUsed());
-				// TODO: Opzionalmente salva in una tabella device_statistics
+				DeviceStatisticsEntity savedStats = deviceStatisticsRepository.save(stats, hexData);
+				log.info("  Saved statistics to database: id={}, ICCID={}, Energy={}mAh", savedStats.getId(), stats.getIccid(), stats.getEnergyUsed());
 			}
 			case 17 -> {
-				// GPS data - parse e log
+				// GPS data - parse e salva nel DB
 				String gpsPayload = extractPayloadAfterHeader(hexData);
 				MessageType17Response gps = messageTypeParser.parseMessageType17(gpsPayload, deviceId, deviceType);
-				log.info("  Received GPS: lat={}, lon={}, alt={}m", gps.getLatitude(), gps.getLongitude(),
+				DeviceLocationEntity savedLocation = deviceLocationRepository.save(gps, hexData);
+				log.info("  Saved GPS to database: id={}, lat={}, lon={}, alt={}m", savedLocation.getId(), gps.getLatitude(), gps.getLongitude(),
 						gps.getAltitude());
 				log.info("  Google Maps: {}", gps.getGoogleMapsLink());
-				// TODO: Opzionalmente salva in una tabella device_locations
 			}
 			default -> {
 				log.warn("  Unknown message type: {}", messageType);

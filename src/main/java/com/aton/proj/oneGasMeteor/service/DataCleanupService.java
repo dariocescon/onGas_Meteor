@@ -1,6 +1,9 @@
 package com.aton.proj.oneGasMeteor.service;
 
 import com.aton.proj.oneGasMeteor.repository.CommandRepository;
+import com.aton.proj.oneGasMeteor.repository.DeviceLocationRepository;
+import com.aton.proj.oneGasMeteor.repository.DeviceSettingsRepository;
+import com.aton.proj.oneGasMeteor.repository.DeviceStatisticsRepository;
 import com.aton.proj.oneGasMeteor.repository.TelemetryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +25,9 @@ public class DataCleanupService {
 
 	private final TelemetryRepository telemetryRepository;
 	private final CommandRepository commandRepository;
+	private final DeviceSettingsRepository deviceSettingsRepository;
+	private final DeviceStatisticsRepository deviceStatisticsRepository;
+	private final DeviceLocationRepository deviceLocationRepository;
 
 	@Value("${cleanup.telemetry.retention.days:30}")
 	private int telemetryRetentionDays;
@@ -29,9 +35,15 @@ public class DataCleanupService {
 	@Value("${cleanup.commands.retention.days:7}")
 	private int commandsRetentionDays;
 
-	public DataCleanupService(TelemetryRepository telemetryRepository, CommandRepository commandRepository) {
+	public DataCleanupService(TelemetryRepository telemetryRepository, CommandRepository commandRepository,
+			DeviceSettingsRepository deviceSettingsRepository,
+			DeviceStatisticsRepository deviceStatisticsRepository,
+			DeviceLocationRepository deviceLocationRepository) {
 		this.telemetryRepository = telemetryRepository;
 		this.commandRepository = commandRepository;
+		this.deviceSettingsRepository = deviceSettingsRepository;
+		this.deviceStatisticsRepository = deviceStatisticsRepository;
+		this.deviceLocationRepository = deviceLocationRepository;
 
 		log.info("✅ DataCleanupService initialized");
 		log.info("   📋 Telemetry retention: {} days", telemetryRetentionDays);
@@ -54,6 +66,9 @@ public class DataCleanupService {
 
 			// Cleanup commands
 			cleanupOldCommands();
+
+			// Cleanup device settings, statistics and locations
+			cleanupOldDeviceData();
 
 			long duration = System.currentTimeMillis() - startTime;
 			log.info("✅ Cleanup completed successfully in {} ms", duration);
@@ -94,6 +109,24 @@ public class DataCleanupService {
 	}
 
 	/**
+	 * Elimina device settings, statistics e locations più vecchi di N giorni
+	 */
+	public void cleanupOldDeviceData() {
+		try {
+			LocalDateTime threshold = LocalDateTime.now().minusDays(telemetryRetentionDays);
+
+			log.info("🗑️  Cleaning device data older than {} (retention: {} days)", threshold, telemetryRetentionDays);
+
+			deviceSettingsRepository.deleteOlderThan(threshold);
+			deviceStatisticsRepository.deleteOlderThan(threshold);
+			deviceLocationRepository.deleteOlderThan(threshold);
+
+		} catch (Exception e) {
+			log.error("❌ Error cleaning old device data", e);
+		}
+	}
+
+	/**
 	 * Cleanup manuale (può essere chiamato da un endpoint admin)
 	 */
 	public CleanupReport manualCleanup() {
@@ -105,6 +138,7 @@ public class DataCleanupService {
 		try {
 			cleanupOldTelemetry();
 			cleanupOldCommands();
+			cleanupOldDeviceData();
 
 			report.setSuccess(true);
 			report.setEndTime(LocalDateTime.now());
