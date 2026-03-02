@@ -271,6 +271,48 @@ class CommandServiceTest {
 		assertEquals("REQUEST_GPS", response.getCommandType());
 	}
 
+	@Test
+	void testCreateCommand_resetRtc_noParams() {
+		when(encoderFactory.getEncoder("TEK822V2")).thenReturn(tek822Encoder);
+
+		CommandEntity savedEntity = new CommandEntity("dev1", "TEK822V2", "RESET_RTC");
+		savedEntity.setId(7L);
+		when(commandRepository.save(any(DeviceCommand.class))).thenReturn(savedEntity);
+
+		CommandCreateRequest request = new CommandCreateRequest("dev1", "TEK822V2", "RESET_RTC");
+		CommandResponse response = commandService.createCommand(request);
+
+		assertEquals("RESET_RTC", response.getCommandType());
+	}
+
+	@Test
+	void testCreateCommand_requestBufferData_noParams() {
+		when(encoderFactory.getEncoder("TEK822V2")).thenReturn(tek822Encoder);
+
+		CommandEntity savedEntity = new CommandEntity("dev1", "TEK822V2", "REQUEST_BUFFER_DATA");
+		savedEntity.setId(8L);
+		when(commandRepository.save(any(DeviceCommand.class))).thenReturn(savedEntity);
+
+		CommandCreateRequest request = new CommandCreateRequest("dev1", "TEK822V2", "REQUEST_BUFFER_DATA");
+		CommandResponse response = commandService.createCommand(request);
+
+		assertEquals("REQUEST_BUFFER_DATA", response.getCommandType());
+	}
+
+	@Test
+	void testCreateCommand_requestDiagnosticData_noParams() {
+		when(encoderFactory.getEncoder("TEK822V2")).thenReturn(tek822Encoder);
+
+		CommandEntity savedEntity = new CommandEntity("dev1", "TEK822V2", "REQUEST_DIAGNOSTIC_DATA");
+		savedEntity.setId(9L);
+		when(commandRepository.save(any(DeviceCommand.class))).thenReturn(savedEntity);
+
+		CommandCreateRequest request = new CommandCreateRequest("dev1", "TEK822V2", "REQUEST_DIAGNOSTIC_DATA");
+		CommandResponse response = commandService.createCommand(request);
+
+		assertEquals("REQUEST_DIAGNOSTIC_DATA", response.getCommandType());
+	}
+
 	// ====================== GET commands ======================
 
 	@Test
@@ -325,7 +367,8 @@ class CommandServiceTest {
 
 		// Comandi senza parametri obbligatori
 		List<String> noParamCommands = List.of("REBOOT", "REQUEST_STATUS", "SHUTDOWN",
-				"DEACTIVATE", "CLOSE_TCP", "REQUEST_GPS", "REQUEST_SETTINGS", "SET_SCHEDULE");
+				"DEACTIVATE", "CLOSE_TCP", "REQUEST_GPS", "REQUEST_SETTINGS", "SET_SCHEDULE",
+				"RESET_RTC", "REQUEST_BUFFER_DATA", "REQUEST_DIAGNOSTIC_DATA");
 
 		for (String cmdType : noParamCommands) {
 			CommandEntity savedEntity = new CommandEntity("dev1", "TEK822V2", cmdType);

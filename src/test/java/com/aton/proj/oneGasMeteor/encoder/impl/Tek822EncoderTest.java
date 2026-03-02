@@ -184,7 +184,7 @@ class Tek822EncoderTest {
 
 		encodeSingle(cmd);
 
-		assertEquals("TEK822,S2=7F0038", cmd.getEncodedCommandASCII());
+		assertEquals("TEK822,S2=7F2000", cmd.getEncodedCommandASCII());
 		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
 	}
 
@@ -416,6 +416,75 @@ class Tek822EncoderTest {
 		encodeSingle(cmd);
 
 		assertEquals("TEK822,R1=08", cmd.getEncodedCommandASCII());
+		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
+	}
+
+	// ====================== RESET_RTC (R1=10) ======================
+
+	@Test
+	void testResetRtc() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "RESET_RTC");
+
+		encodeSingle(cmd);
+
+		assertEquals("TEK822,R1=10", cmd.getEncodedCommandASCII());
+		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
+	}
+
+	@Test
+	void testResetRtc_customPassword() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "RESET_RTC");
+		cmd.addParameter("password", "CUSTOM");
+
+		encodeSingle(cmd);
+
+		assertEquals("CUSTOM,R1=10", cmd.getEncodedCommandASCII());
+		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
+	}
+
+	// ====================== REQUEST_BUFFER_DATA (R1=20) ======================
+
+	@Test
+	void testRequestBufferData() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "REQUEST_BUFFER_DATA");
+
+		encodeSingle(cmd);
+
+		assertEquals("TEK822,R1=20", cmd.getEncodedCommandASCII());
+		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
+	}
+
+	@Test
+	void testRequestBufferData_customPassword() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "REQUEST_BUFFER_DATA");
+		cmd.addParameter("password", "CUSTOM");
+
+		encodeSingle(cmd);
+
+		assertEquals("CUSTOM,R1=20", cmd.getEncodedCommandASCII());
+		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
+	}
+
+	// ====================== REQUEST_DIAGNOSTIC_DATA (R6=01) ======================
+
+	@Test
+	void testRequestDiagnosticData() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "REQUEST_DIAGNOSTIC_DATA");
+
+		encodeSingle(cmd);
+
+		assertEquals("TEK822,R6=01", cmd.getEncodedCommandASCII());
+		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
+	}
+
+	@Test
+	void testRequestDiagnosticData_customPassword() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "REQUEST_DIAGNOSTIC_DATA");
+		cmd.addParameter("password", "CUSTOM");
+
+		encodeSingle(cmd);
+
+		assertEquals("CUSTOM,R6=01", cmd.getEncodedCommandASCII());
 		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
 	}
 

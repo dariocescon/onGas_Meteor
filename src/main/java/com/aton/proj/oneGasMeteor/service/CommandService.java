@@ -44,6 +44,9 @@ public class CommandService {
 			Tek822Encoder.CMD_CLOSE_TCP,
 			Tek822Encoder.CMD_REQUEST_GPS,
 			Tek822Encoder.CMD_REQUEST_SETTINGS,
+			Tek822Encoder.CMD_RESET_RTC,
+			Tek822Encoder.CMD_REQUEST_BUFFER_DATA,
+			Tek822Encoder.CMD_REQUEST_DIAGNOSTIC_DATA,
 			Tek822Encoder.CMD_SET_APN,
 			Tek822Encoder.CMD_SET_SERVER);
 

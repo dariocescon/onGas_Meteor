@@ -45,6 +45,9 @@ public class Tek822Encoder implements DeviceEncoder {
 	public static final String CMD_CLOSE_TCP = "CLOSE_TCP"; // R6=03
 	public static final String CMD_REQUEST_GPS = "REQUEST_GPS"; // R7
 	public static final String CMD_REQUEST_SETTINGS = "REQUEST_SETTINGS"; // R1=02/04/08
+	public static final String CMD_RESET_RTC = "RESET_RTC"; // R1=10
+	public static final String CMD_REQUEST_BUFFER_DATA = "REQUEST_BUFFER_DATA"; // R1=20
+	public static final String CMD_REQUEST_DIAGNOSTIC_DATA = "REQUEST_DIAGNOSTIC_DATA"; // R6=01
 	public static final String CMD_SET_APN = "SET_APN"; // S12/S13/S14
 	public static final String CMD_SET_SERVER = "SET_SERVER"; // S15/S16
 
@@ -63,7 +66,7 @@ public class Tek822Encoder implements DeviceEncoder {
 
 	@Override
 	public List<TelemetryResponse.EncodedCommand> encode(List<DeviceCommand> commands) {
-		// Copia mutabile — l'input potrebbe essere immutabile (List.of(), .toList())
+		// Copia mutabile ï¿½ l'input potrebbe essere immutabile (List.of(), .toList())
 		List<DeviceCommand> mutableCommands = new ArrayList<>(commands);
 
 		// Auto-append R3=ACTIVE se ci sono S-commands e nessun REBOOT esplicito
@@ -153,6 +156,9 @@ public class Tek822Encoder implements DeviceEncoder {
 		case CMD_CLOSE_TCP -> encodeCloseTCP(password);
 		case CMD_REQUEST_GPS -> encodeRequestGPS(password, command);
 		case CMD_REQUEST_SETTINGS -> encodeRequestSettings(password, command);
+		case CMD_RESET_RTC -> encodeResetRtc(password);
+		case CMD_REQUEST_BUFFER_DATA -> encodeRequestBufferData(password);
+		case CMD_REQUEST_DIAGNOSTIC_DATA -> encodeRequestDiagnosticData(password);
 		case CMD_SET_APN -> encodeSetAPN(password, command);
 		case CMD_SET_SERVER -> encodeSetServer(password, command);
 		default -> throw new EncodingException("Unknown command type: " + command.getCommandType());
@@ -200,11 +206,13 @@ public class Tek822Encoder implements DeviceEncoder {
 	}
 
 	/**
-	 * S2: Schedule Configuration (sezione 3.20.3) Example: TEK822,S2=7F2056
+	 * S2: Schedule Configuration (sezione 3.20.3) Example: TEK822,S2=7F2000
+	 * Default 7F2000: tutti i giorni (0x7F), ore 8:00 (0x20 = 32 x 15min), once daily (0x00)
+	 * (Confermato da CF-5018-20 Excel fornitore, sheet "822 CC", Full PFL)
 	 */
 	private String encodeSetSchedule(String password, DeviceCommand command) {
 		// Implementazione complessa - per ora placeholder
-		String scheduleValue = command.getParameters().getOrDefault("schedule", "7F0038").toString();
+		String scheduleValue = command.getParameters().getOrDefault("schedule", "7F2000").toString();
 		return String.format("%s,S2=%s", password, scheduleValue);
 	}
 
@@ -299,6 +307,33 @@ public class Tek822Encoder implements DeviceEncoder {
 		};
 
 		return String.format("%s,R1=%s", password, r1Value);
+	}
+
+	/**
+	 * R1=10: Reset RTC (CF-5018-20 Excel fornitore, sheet "Request Commands")
+	 * Forza la ri-sincronizzazione del clock al prossimo contatto con il server.
+	 * Example: TEK822,R1=10
+	 */
+	private String encodeResetRtc(String password) {
+		return String.format("%s,R1=10", password);
+	}
+
+	/**
+	 * R1=20: Request Buffer Data (CF-5018-20 Excel fornitore, sheet "Request Commands")
+	 * Forza l'invio dei dati bufferizzati in formato alarm (risposta: Msg#8, 10 misurazioni recenti).
+	 * Example: TEK822,R1=20
+	 */
+	private String encodeRequestBufferData(String password) {
+		return String.format("%s,R1=20", password);
+	}
+
+	/**
+	 * R6=01: Request Diagnostic Data (Message Type 2) (CF-5018-20 Excel fornitore, sheet "Request Commands")
+	 * Richiede dati diagnostici del device: segnale radio, tensione batteria, temperatura, ecc.
+	 * Example: TEK822,R6=01
+	 */
+	private String encodeRequestDiagnosticData(String password) {
+		return String.format("%s,R6=01", password);
 	}
 
 	/**
