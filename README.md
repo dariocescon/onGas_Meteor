@@ -75,6 +75,83 @@ The Tek822Decoder supports 14 Tekelek product types:
 | 16 | ICCID & statistics | Energy usage, temperature range, message counts, RSSI → `DEVICE_STATISTICS` |
 | 17 | GPS location | Latitude, longitude, altitude, speed, satellites → `DEVICE_LOCATIONS` |
 
+## Requesting Data from Devices (Command → Response Mapping)
+
+Messages 6, 16 and 17 are **not sent spontaneously** by the device — they are **responses to specific commands** sent by the server. The table below shows which command to send via `POST /api/commands` to trigger each response message type:
+
+| Response Message Type | Command to Send | Register | Description |
+|-----------------------|----------------|----------|-------------|
+| **6** — Settings | `REQUEST_SETTINGS` | R1=02 / R1=04 / R1=08 | Device replies with its current settings (S0–S11, S12–S18, or S19+) |
+| **16** — Statistics | `REQUEST_STATUS` | R6=02 | Device replies with ICCID, energy usage, temperature range, RSSI, message counts |
+| **17** — GPS | `REQUEST_GPS` | R7=XX | Device acquires a GPS fix (XX = timeout in hex seconds) and replies with coordinates |
+
+### REST API Examples
+
+#### Request Settings (Message Type 6)
+
+```bash
+curl -X POST http://localhost:8081/api/commands \
+  -H "Content-Type: application/json" \
+  -d '{
+    "deviceId": "862406075927406",
+    "deviceType": "TEK822V2",
+    "commandType": "REQUEST_SETTINGS"
+  }'
+```
+
+Optional parameter `startFrom` selects the settings range:
+- `"S0"` (default) → `R1=02` — returns settings from S0
+- `"S12"` → `R1=04` — returns settings from S12
+- `"S19"` → `R1=08` — returns settings from S19
+
+```json
+{
+  "deviceId": "862406075927406",
+  "deviceType": "TEK822V2",
+  "commandType": "REQUEST_SETTINGS",
+  "parameters": { "startFrom": "S12" }
+}
+```
+
+#### Request Statistics (Message Type 16)
+
+```bash
+curl -X POST http://localhost:8081/api/commands \
+  -H "Content-Type: application/json" \
+  -d '{
+    "deviceId": "862406075927406",
+    "deviceType": "TEK822V2",
+    "commandType": "REQUEST_STATUS"
+  }'
+```
+
+No parameters required.
+
+#### Request GPS (Message Type 17)
+
+```bash
+curl -X POST http://localhost:8081/api/commands \
+  -H "Content-Type: application/json" \
+  -d '{
+    "deviceId": "862406075927406",
+    "deviceType": "TEK822V2",
+    "commandType": "REQUEST_GPS"
+  }'
+```
+
+Optional parameter `timeout` (default: 60 seconds):
+
+```json
+{
+  "deviceId": "862406075927406",
+  "deviceType": "TEK822V2",
+  "commandType": "REQUEST_GPS",
+  "parameters": { "timeout": 120 }
+}
+```
+
+> **Flow:** The command is saved as `PENDING` in the database. When the device next connects via TCP, Meteor sends the encoded command in the TCP response. The device processes the command and, on its next connection, sends back the corresponding message type (6, 16, or 17), which Meteor decodes and persists.
+
 ## Supported Commands (Encoder)
 
 The Tek822Encoder supports 17 command types that can be sent back to devices:
