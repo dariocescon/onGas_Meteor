@@ -1,7 +1,33 @@
--- SQL Server DDL per le tabelle dei messaggi di tipo 6, 16 e 17
+-- SQL Server DDL per le tabelle dei messaggi di tipo 4/8/9, 6, 16 e 17
 -- Da eseguire sul database oneGasDB
 
+-- ============================================================
+-- Tabella per la telemetria decodificata (Message Type 4/8/9)
+-- ============================================================
+CREATE TABLE telemetry_data (
+    id                  BIGINT IDENTITY(1,1) PRIMARY KEY,
+    device_id           NVARCHAR(50)  NOT NULL,
+    device_type         NVARCHAR(50)  NOT NULL,
+    raw_message         NVARCHAR(MAX) NULL,
+    decoded_data        NVARCHAR(MAX) NULL,
+    received_at         DATETIME2(3)  NOT NULL,
+    processed_at        DATETIME2(3)  NULL,
+    imei                NVARCHAR(20)  NULL,
+    firmware_version    NVARCHAR(20)  NULL,
+    battery_voltage     FLOAT         NULL,
+    battery_percentage  FLOAT         NULL,
+    signal_strength     INT           NULL,
+    message_type        NVARCHAR(50)  NULL,
+    measurement_count   INT           NULL
+);
+CREATE INDEX idx_device_id   ON telemetry_data (device_id);
+CREATE INDEX idx_device_type ON telemetry_data (device_type);
+CREATE INDEX idx_received_at ON telemetry_data (received_at);
+CREATE INDEX idx_imei        ON telemetry_data (imei);
+
+-- ============================================================
 -- Tabella per le impostazioni del device (Message Type 6)
+-- ============================================================
 CREATE TABLE device_settings (
     id              BIGINT IDENTITY(1,1) PRIMARY KEY,
     device_id       NVARCHAR(50)  NOT NULL,

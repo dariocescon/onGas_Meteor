@@ -199,9 +199,11 @@ public class MessageType16Response {
 
 	@Override
 	public String toString() {
+		String rateStr = deliverySuccessRate != null ? String.format("%.2f%%", deliverySuccessRate) : "N/A";
+		String rssiStr = averageRssi         != null ? String.format("%.1f",   averageRssi)         : "N/A";
 		return "MessageType16Response{" + "deviceId='" + deviceId + '\'' + ", iccid='" + iccid + '\'' + ", energyUsed="
 				+ energyUsed + ", messageCount=" + messageCount + ", deliverySuccessRate="
-				+ String.format("%.2f%%", deliverySuccessRate) + ", averageRssi=" + String.format("%.1f", averageRssi)
+				+ rateStr + ", averageRssi=" + rssiStr
 				+ '}';
 	}
 }

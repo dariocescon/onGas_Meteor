@@ -41,16 +41,27 @@ public class MessageType17Response {
 		// Remove direction character if present
 		coordinate = coordinate.replaceAll("[NSEW]", "").trim();
 
+		// FIX: gestisci coordinate troppo corte (GPS fix fallito, es. "0")
+		if (coordinate.isEmpty()) {
+			return 0.0;
+		}
+
 		// Parse degrees and minutes
 		double degrees;
 		double minutes;
 
 		if (direction == 'N' || direction == 'S') {
-			// Latitude: ddmm.mmmm
+			// Latitude: ddmm.mmmm (minimo 3 caratteri: es. "00.0")
+			if (coordinate.length() < 3) {
+				return 0.0;
+			}
 			degrees = Double.parseDouble(coordinate.substring(0, 2));
 			minutes = Double.parseDouble(coordinate.substring(2));
 		} else {
-			// Longitude: dddmm.mmmm
+			// Longitude: dddmm.mmmm (minimo 4 caratteri: es. "000.0")
+			if (coordinate.length() < 4) {
+				return 0.0;
+			}
 			degrees = Double.parseDouble(coordinate.substring(0, 3));
 			minutes = Double.parseDouble(coordinate.substring(3));
 		}
@@ -112,10 +123,16 @@ public class MessageType17Response {
 
 	public void setLatitudeRaw(String latitudeRaw) {
 		this.latitudeRaw = latitudeRaw;
-		// Auto-convert to decimal
-		if (latitudeRaw != null && latitudeRaw.length() > 0) {
+		// Auto-convert to decimal — solo se la coordinata è valida
+		if (latitudeRaw != null && latitudeRaw.length() > 1) {
 			char direction = latitudeRaw.charAt(latitudeRaw.length() - 1);
-			this.latitude = coordinateToDecimal(latitudeRaw, direction);
+			if (direction == 'N' || direction == 'S') {
+				this.latitude = coordinateToDecimal(latitudeRaw, direction);
+				if (this.latitude == 0.0) {
+					this.latitude = null; // GPS fix fallito
+				}
+			}
+			// Se il carattere finale non è N/S, non è una coordinata valida
 		}
 	}
 
@@ -125,10 +142,16 @@ public class MessageType17Response {
 
 	public void setLongitudeRaw(String longitudeRaw) {
 		this.longitudeRaw = longitudeRaw;
-		// Auto-convert to decimal
-		if (longitudeRaw != null && longitudeRaw.length() > 0) {
+		// Auto-convert to decimal — solo se la coordinata è valida
+		if (longitudeRaw != null && longitudeRaw.length() > 1) {
 			char direction = longitudeRaw.charAt(longitudeRaw.length() - 1);
-			this.longitude = coordinateToDecimal(longitudeRaw, direction);
+			if (direction == 'E' || direction == 'W') {
+				this.longitude = coordinateToDecimal(longitudeRaw, direction);
+				if (this.longitude == 0.0) {
+					this.longitude = null; // GPS fix fallito
+				}
+			}
+			// Se il carattere finale non è E/W, non è una coordinata valida
 		}
 	}
 

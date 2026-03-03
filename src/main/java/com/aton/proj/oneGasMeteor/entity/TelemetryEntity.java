@@ -25,10 +25,10 @@ public class TelemetryEntity {
     @Column(name = "device_type", nullable = false, length = 50)
     private String deviceType;
     
-    @Column(name = "raw_message", columnDefinition = "TEXT")
+    @Column(name = "raw_message", columnDefinition = "NVARCHAR(MAX)")
     private String rawMessage;
     
-    @Column(name = "decoded_data", columnDefinition = "TEXT")
+    @Column(name = "decoded_data", columnDefinition = "NVARCHAR(MAX)")
     private String decodedDataJson; // JSON serializzato di DecodedMessage
     
     @Column(name = "received_at", nullable = false)

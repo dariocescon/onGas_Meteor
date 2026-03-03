@@ -126,7 +126,9 @@ public class TelemetryService {
 			}
 			case 17 -> {
 				// GPS data - parse e salva nel DB
+//				System.err.println(hexData);
 				String gpsPayload = extractPayloadAfterHeader(hexData);
+//				System.err.println(gpsPayload);
 				MessageType17Response gps = messageTypeParser.parseMessageType17(gpsPayload, deviceId, deviceType);
 				DeviceLocationEntity savedLocation = deviceLocationRepository.save(gps, hexData);
 				log.info("  Saved GPS to database: id={}, lat={}, lon={}, alt={}m", savedLocation.getId(), gps.getLatitude(), gps.getLongitude(),

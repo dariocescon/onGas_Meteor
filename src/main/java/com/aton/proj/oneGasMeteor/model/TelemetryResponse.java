@@ -129,14 +129,16 @@ public class TelemetryResponse {
 		private Long commandId;
 		private String commandType;
 		private String encodedData;
+		private String asciiData;
 
 		public EncodedCommand() {
 		}
 
-		public EncodedCommand(Long commandId, String commandType, String encodedData) {
+		public EncodedCommand(Long commandId, String commandType, String encodedData, String asciiData) {
 			this.commandId = commandId;
 			this.commandType = commandType;
 			this.encodedData = encodedData;
+			this.asciiData = asciiData;
 		}
 
 		public Long getCommandId() {
@@ -161,6 +163,14 @@ public class TelemetryResponse {
 
 		public void setEncodedData(String encodedData) {
 			this.encodedData = encodedData;
+		}
+
+		public String getAsciiData() {
+			return asciiData;
+		}
+
+		public void setAsciiData(String asciiData) {
+			this.asciiData = asciiData;
 		}
 	}
 }

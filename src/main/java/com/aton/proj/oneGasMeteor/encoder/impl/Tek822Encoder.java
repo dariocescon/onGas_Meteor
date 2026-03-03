@@ -82,6 +82,7 @@ public class Tek822Encoder implements DeviceEncoder {
 				encoded.setCommandId(command.getId());
 				encoded.setCommandType(command.getCommandType());
 				encoded.setEncodedData(command.getEncodedCommandHEX());
+				encoded.setAsciiData(command.getEncodedCommandASCII());
 
 				encodedCommands.add(encoded);
 
