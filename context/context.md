@@ -101,7 +101,7 @@ Il server:
 
 | Layer | Responsabilità |
 |-------|---------------|
-| **Transport** | Accetta connessioni TCP (Java 21 virtual threads) e richieste HTTP REST |
+| **Transport** | Accetta connessioni TCP (Java 21 virtual threads) con Semaphore per limitare le connessioni concorrenti e backlog configurabile sul `ServerSocket`; espone richieste HTTP REST |
 | **Service** | Orchestrazione del flusso: decodifica → persistenza → encoding comandi |
 | **Decoder** | Trasforma il payload binario in oggetti Java (`DecodedMessage`) |
 | **Encoder** | Trasforma i `DeviceCommand` in stringhe ASCII/HEX da inviare al device |
@@ -119,6 +119,7 @@ Dispositivo IoT
     │  Payload binario (17-byte header + body)
     ▼
 TcpSocketServer
+    │  Semaphore.acquire() → limita connessioni concorrenti (max 10000)
     │  Accetta connessione, crea virtual thread
     ▼
 TcpConnectionHandler (o TcpConnectionHandlerReadExactly)
@@ -179,8 +180,8 @@ Dispositivo IoT riceve risposta
 
 #### `TcpSocketServer`
 - **Tipo**: `@Component`, `CommandLineRunner`
-- **Funzione**: Avvia un `ServerSocket` sulla porta configurata (`tcp.server.port`, default `8091`). Per ogni connessione in entrata crea un virtual thread (Java 21 `Executors.newVirtualThreadPerTaskExecutor()`) e delega a `TcpConnectionHandler`.
-- **Lifecycle**: `@PreDestroy` chiude il `ServerSocket` alla shutdown dell'applicazione.
+- **Funzione**: Avvia un `ServerSocket` sulla porta configurata (`tcp.server.port`, default `8091`) con backlog configurabile (`tcp.server.backlog`, default `1024`). Usa un `Semaphore` (`connectionLimiter`) inizializzato a `tcp.server.max-connections` (default `10000`) per limitare le connessioni concorrenti. Per ogni connessione in entrata acquisisce un permesso dal semaforo, crea un virtual thread (Java 21 `Executors.newVirtualThreadPerTaskExecutor()`) e delega a `TcpConnectionHandlerReadExactly`; il permesso viene rilasciato nel blocco `finally` del thread. Quando i permessi disponibili scendono sotto il 10 % viene loggato un warning.
+- **Lifecycle**: `@PreDestroy` chiude il `ServerSocket`, esegue `executorService.shutdown()` con attesa di 5 s (poi `shutdownNow()`) e logga lo stato finale del semaforo.
 
 ---
 
@@ -366,7 +367,7 @@ String getEncoderName();
 | Classe | Funzione |
 |--------|---------|
 | `SchedulerConfig` | `@EnableScheduling` per il cleanup schedulato |
-| `tcp/TcpServerProperties` | Binding delle properties `tcp.server.*` |
+| `tcp/TcpServerProperties` | Binding `@ConfigurationProperties(prefix = "tcp.server")` con: `port` (default 8091), `timeout` (default 10000 ms), `maxConnections` (default 10000), `backlog` (default 1024) |
 
 ---
 
@@ -892,6 +893,8 @@ Stato del servizio cleanup.
 | `spring.application.name` | `oneGas_Meteor` | — | Nome applicazione |
 | `server.port` | `8081` | `ONE_GAS_METEOR_SERVER_PORT` | Porta HTTP REST |
 | `tcp.server.port` | `8091` | `ONE_GAS_METEOR_TCP_SERVER_PORT` | Porta server TCP |
+| `tcp.server.max-connections` | `10000` | — | Numero massimo di connessioni TCP concorrenti (Semaphore permits) |
+| `tcp.server.backlog` | `1024` | — | Dimensione coda connessioni in attesa del `ServerSocket` |
 | `device.enabled.types` | `TEK822V1,TEK822V2,TEK586` | — | Device types abilitati (comma-separated) |
 | `database.type` | `sqlserver` | — | Tipo DB: `sqlserver` o `mongodb` |
 | `spring.datasource.url` | `jdbc:sqlserver://localhost:1433;databaseName=oneGasDB;encrypt=false;trustServerCertificate=true` | — | URL SQL Server |
@@ -901,6 +904,9 @@ Stato del servizio cleanup.
 | `spring.jpa.hibernate.ddl-auto` | `validate` | — | Hibernate DDL: validate (non modifica lo schema) |
 | `spring.jpa.show-sql` | `true` | — | Log SQL queries |
 | `spring.jpa.properties.hibernate.dialect` | `org.hibernate.dialect.SQLServerDialect` | — | Dialetto Hibernate |
+| `spring.datasource.hikari.maximum-pool-size` | `100` | — | Numero massimo di connessioni nel pool HikariCP |
+| `spring.datasource.hikari.minimum-idle` | `10` | — | Connessioni minime mantenute idle nel pool HikariCP |
+| `spring.datasource.hikari.connection-timeout` | `10000` | — | Timeout (ms) per ottenere una connessione dal pool HikariCP |
 | `command.max.per.response` | `10` | — | Max comandi per risposta TCP |
 | `telemetry.processing.timeout` | `5000` | — | Timeout elaborazione messaggio (ms) |
 | `cleanup.enabled` | `false` | — | Abilita cleanup automatico |
@@ -1223,4 +1229,4 @@ Tutti i file di documentazione si trovano nella directory [`docs/`](../docs/) al
 
 ---
 
-*Fine documento — onGas_Meteor context v1.0*
+*Fine documento — onGas_Meteor context v1.1*
