@@ -964,6 +964,8 @@ La famiglia Tekelek TEK822 e dispositivi compatibili. Il product type è codific
 
 ---
 
+<a id="11-pattern-di-estensibilità"></a>
+
 ## 11. Pattern di Estensibilità
 
 Il progetto usa il **Strategy Pattern** per decoder ed encoder, con Spring `@Order` per la priorità.
@@ -1126,6 +1128,8 @@ La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 ```
 
 ---
+
+<a id="13-build--run"></a>
 
 ## 13. Build & Run
 
