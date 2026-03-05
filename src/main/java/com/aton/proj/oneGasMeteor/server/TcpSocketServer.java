@@ -5,6 +5,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -27,6 +28,7 @@ public class TcpSocketServer implements CommandLineRunner {
 	private final TcpConnectionHandler connectionHandler;
 	private final TcpConnectionHandlerReadExactly connectionHandlerReadExactly;
 	private final ExecutorService executorService;
+	private final Semaphore connectionLimiter;
 
 	private ServerSocket serverSocket;
 	private volatile boolean running = false;
@@ -37,6 +39,7 @@ public class TcpSocketServer implements CommandLineRunner {
 		this.connectionHandler = connectionHandler;
 		this.connectionHandlerReadExactly = connectionHandlerReadExactly;
 		this.executorService = Executors.newVirtualThreadPerTaskExecutor(); // Java 21 Virtual Threads
+		this.connectionLimiter = new Semaphore(properties.getMaxConnections());
 	}
 
 	@Override
@@ -46,11 +49,13 @@ public class TcpSocketServer implements CommandLineRunner {
 
 	private void startServer() {
 		try {
-			serverSocket = new ServerSocket(properties.getPort());
+			serverSocket = new ServerSocket(properties.getPort(), properties.getBacklog());
 			running = true;
 
 			log.info("TCP Server started on port {}", properties.getPort());
 			log.info("Timeout configured: {}ms", properties.getTimeout());
+			log.info("Max concurrent connections: {}", properties.getMaxConnections());
+			log.info("ServerSocket backlog: {}", properties.getBacklog());
 
 			acceptConnections();
 
@@ -63,17 +68,37 @@ public class TcpSocketServer implements CommandLineRunner {
 	private void acceptConnections() {
 		while (running) {
 			try {
+				// Acquisisce un permesso dal semaforo (blocca se raggiunto il limite)
+				connectionLimiter.acquire();
+
+				int availablePermits = connectionLimiter.availablePermits();
+				if (availablePermits < properties.getMaxConnections() * 0.1) {
+					log.warn("⚠️  Connection limiter running low: {}/{} permits available",
+							availablePermits, properties.getMaxConnections());
+				}
+
 				Socket clientSocket = serverSocket.accept();
 
 				// Gestisce ogni connessione in un virtual thread separato
-				executorService.submit(
-						() -> connectionHandlerReadExactly.handleConnection(clientSocket, properties.getTimeout())
-				);
+				executorService.submit(() -> {
+					try {
+						connectionHandlerReadExactly.handleConnection(clientSocket, properties.getTimeout());
+					} finally {
+						connectionLimiter.release();
+					}
+				});
 
+			} catch (InterruptedException e) {
+				if (running) {
+					log.warn("Connection limiter interrupted");
+					Thread.currentThread().interrupt();
+				}
 			} catch (IOException e) {
 				if (running) {
 					log.error("Error accepting connection: {}", e.getMessage());
 				}
+				// Rilascia il permesso se la connessione non è stata accettata
+				connectionLimiter.release();
 			}
 		}
 	}
@@ -94,6 +119,8 @@ public class TcpSocketServer implements CommandLineRunner {
 			}
 
 			log.info("TCP server stopped");
+			log.info("Connection limiter final state: {}/{} permits available",
+					connectionLimiter.availablePermits(), properties.getMaxConnections());
 
 		} catch (IOException | InterruptedException e) {
 			log.error("Error during shutdown: {}", e.getMessage());

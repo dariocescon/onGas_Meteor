@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Configuration;
 public class TcpServerProperties {
 	private int port = 8091;
 	private int timeout = 10000;
+	private int maxConnections = 10000;
+	private int backlog = 1024;
 
 	public int getPort() {
 		return port;
@@ -23,5 +25,21 @@ public class TcpServerProperties {
 
 	public void setTimeout(int timeout) {
 		this.timeout = timeout;
+	}
+
+	public int getMaxConnections() {
+		return maxConnections;
+	}
+
+	public void setMaxConnections(int maxConnections) {
+		this.maxConnections = maxConnections;
+	}
+
+	public int getBacklog() {
+		return backlog;
+	}
+
+	public void setBacklog(int backlog) {
+		this.backlog = backlog;
 	}
 }
