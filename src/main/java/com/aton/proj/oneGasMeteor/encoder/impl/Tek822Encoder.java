@@ -301,10 +301,10 @@ public class Tek822Encoder implements DeviceEncoder {
 		String startFrom = command.getParameters().getOrDefault("startFrom", "S0").toString();
 
 		String r1Value = switch (startFrom) {
-		case "S0" -> "02";
-		case "S12" -> "04";
-		case "S19" -> "08";
-		default -> "02";
+		case "S0" -> "02";  // tutti i registri
+		case "S12" -> "04"; // da S12 in poi (connettivita')
+		case "S19" -> "08"; // da S19 in poi
+		default -> "02";    // fallback = S0
 		};
 
 		return String.format("%s,R1=%s", password, r1Value);
