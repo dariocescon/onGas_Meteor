@@ -4,11 +4,13 @@ import com.aton.proj.oneGasMeteor.repository.CommandRepository;
 import com.aton.proj.oneGasMeteor.repository.DeviceLocationRepository;
 import com.aton.proj.oneGasMeteor.repository.DeviceSettingsRepository;
 import com.aton.proj.oneGasMeteor.repository.DeviceStatisticsRepository;
+import com.aton.proj.oneGasMeteor.repository.ProcessingMetricsRepository;
 import com.aton.proj.oneGasMeteor.repository.TelemetryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +30,7 @@ public class DataCleanupService {
 	private final DeviceSettingsRepository deviceSettingsRepository;
 	private final DeviceStatisticsRepository deviceStatisticsRepository;
 	private final DeviceLocationRepository deviceLocationRepository;
+	private final ProcessingMetricsRepository processingMetricsRepository;
 
 	@Value("${cleanup.telemetry.retention.days:30}")
 	private int telemetryRetentionDays;
@@ -35,19 +38,25 @@ public class DataCleanupService {
 	@Value("${cleanup.commands.retention.days:7}")
 	private int commandsRetentionDays;
 
+	@Value("${cleanup.metrics.retention.days:90}")
+	private int metricsRetentionDays;
+
 	public DataCleanupService(TelemetryRepository telemetryRepository, CommandRepository commandRepository,
 			DeviceSettingsRepository deviceSettingsRepository,
 			DeviceStatisticsRepository deviceStatisticsRepository,
-			DeviceLocationRepository deviceLocationRepository) {
+			DeviceLocationRepository deviceLocationRepository,
+			@Nullable ProcessingMetricsRepository processingMetricsRepository) {
 		this.telemetryRepository = telemetryRepository;
 		this.commandRepository = commandRepository;
 		this.deviceSettingsRepository = deviceSettingsRepository;
 		this.deviceStatisticsRepository = deviceStatisticsRepository;
 		this.deviceLocationRepository = deviceLocationRepository;
+		this.processingMetricsRepository = processingMetricsRepository;
 
-		log.info("✅ DataCleanupService initialized");
-		log.info("   📋 Telemetry retention: {} days", telemetryRetentionDays);
-		log.info("   📋 Commands retention: {} days", commandsRetentionDays);
+		log.info(" DataCleanupService initialized");
+		log.info("   Telemetry retention: {} days", telemetryRetentionDays);
+		log.info("   Commands retention: {} days", commandsRetentionDays);
+		log.info("   Metrics retention: {} days", metricsRetentionDays);
 	}
 
 	/**
@@ -56,7 +65,7 @@ public class DataCleanupService {
 	 */
 	@Scheduled(cron = "${cleanup.cron:0 0 2 * * *}")
 	public void scheduledCleanup() {
-		log.info("🧹 Starting scheduled data cleanup...");
+		log.info(" Starting scheduled data cleanup...");
 
 		try {
 			long startTime = System.currentTimeMillis();
@@ -70,11 +79,14 @@ public class DataCleanupService {
 			// Cleanup device settings, statistics and locations
 			cleanupOldDeviceData();
 
+			// Cleanup processing metrics
+			cleanupOldProcessingMetrics();
+
 			long duration = System.currentTimeMillis() - startTime;
-			log.info("✅ Cleanup completed successfully in {} ms", duration);
+			log.info(" Cleanup completed successfully in {} ms", duration);
 
 		} catch (Exception e) {
-			log.error("❌ Error during scheduled cleanup", e);
+			log.error(" Error during scheduled cleanup", e);
 		}
 	}
 
@@ -85,12 +97,12 @@ public class DataCleanupService {
 		try {
 			LocalDateTime threshold = LocalDateTime.now().minusDays(telemetryRetentionDays);
 
-			log.info("🗑️  Cleaning telemetry older than {} (retention: {} days)", threshold, telemetryRetentionDays);
+			log.info("  Cleaning telemetry older than {} (retention: {} days)", threshold, telemetryRetentionDays);
 
 			telemetryRepository.deleteOlderThan(threshold);
 
 		} catch (Exception e) {
-			log.error("❌ Error cleaning old telemetry", e);
+			log.error(" Error cleaning old telemetry", e);
 		}
 	}
 
@@ -99,12 +111,12 @@ public class DataCleanupService {
 	 */
 	public void cleanupOldCommands() {
 		try {
-			log.info("🗑️  Cleaning completed commands older than {} days", commandsRetentionDays);
+			log.info(" Cleaning completed commands older than {} days", commandsRetentionDays);
 
 			commandRepository.deleteOldCompletedCommands(commandsRetentionDays);
 
 		} catch (Exception e) {
-			log.error("❌ Error cleaning old commands", e);
+			log.error(" Error cleaning old commands", e);
 		}
 	}
 
@@ -115,14 +127,34 @@ public class DataCleanupService {
 		try {
 			LocalDateTime threshold = LocalDateTime.now().minusDays(telemetryRetentionDays);
 
-			log.info("🗑️  Cleaning device data older than {} (retention: {} days)", threshold, telemetryRetentionDays);
+			log.info(" Cleaning device data older than {} (retention: {} days)", threshold, telemetryRetentionDays);
 
 			deviceSettingsRepository.deleteOlderThan(threshold);
 			deviceStatisticsRepository.deleteOlderThan(threshold);
 			deviceLocationRepository.deleteOlderThan(threshold);
 
 		} catch (Exception e) {
-			log.error("❌ Error cleaning old device data", e);
+			log.error(" Error cleaning old device data", e);
+		}
+	}
+
+	/**
+	 * Elimina metriche di performance piu' vecchie di N giorni
+	 */
+	public void cleanupOldProcessingMetrics() {
+		if (processingMetricsRepository == null) {
+			log.debug("Processing metrics repository not available, skipping cleanup");
+			return;
+		}
+		try {
+			LocalDateTime threshold = LocalDateTime.now().minusDays(metricsRetentionDays);
+
+			log.info(" Cleaning processing metrics older than {} (retention: {} days)", threshold, metricsRetentionDays);
+
+			processingMetricsRepository.deleteOlderThan(threshold);
+
+		} catch (Exception e) {
+			log.error(" Error cleaning old processing metrics", e);
 		}
 	}
 
@@ -130,7 +162,7 @@ public class DataCleanupService {
 	 * Cleanup manuale (può essere chiamato da un endpoint admin)
 	 */
 	public CleanupReport manualCleanup() {
-		log.info("🧹 Manual cleanup triggered");
+		log.info(" Manual cleanup triggered");
 
 		CleanupReport report = new CleanupReport();
 		report.setStartTime(LocalDateTime.now());
@@ -139,6 +171,7 @@ public class DataCleanupService {
 			cleanupOldTelemetry();
 			cleanupOldCommands();
 			cleanupOldDeviceData();
+			cleanupOldProcessingMetrics();
 
 			report.setSuccess(true);
 			report.setEndTime(LocalDateTime.now());

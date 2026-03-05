@@ -27,6 +27,7 @@ import com.aton.proj.oneGasMeteor.model.DeviceCommand;
 import com.aton.proj.oneGasMeteor.model.MessageType16Response;
 import com.aton.proj.oneGasMeteor.model.MessageType17Response;
 import com.aton.proj.oneGasMeteor.model.MessageType6Response;
+import com.aton.proj.oneGasMeteor.model.ProcessingContext;
 import com.aton.proj.oneGasMeteor.model.TelemetryMessage;
 import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
 import com.aton.proj.oneGasMeteor.model.TelemetryResponse.EncodedCommand;
@@ -78,12 +79,20 @@ public class TelemetryService {
 	}
 
 	/**
-	 * Processa un messaggio di telemetria
-	 * 
-	 * @param hexMessage Messaggio in formato hex string
-	 * @return Risposta da inviare al device
+	 * Processa un messaggio di telemetria (backward compatible, senza metriche)
 	 */
 	public TelemetryResponse processTelemetry(TelemetryMessage message) {
+		return processTelemetry(message, null);
+	}
+
+	/**
+	 * Processa un messaggio di telemetria con raccolta metriche di performance
+	 * 
+	 * @param message Messaggio di telemetria
+	 * @param context Contesto per metriche (nullable)
+	 * @return Risposta da inviare al device
+	 */
+	public TelemetryResponse processTelemetry(TelemetryMessage message, ProcessingContext context) {
 
 		LocalDateTime receivedAt = LocalDateTime.now();
 		log.info("Processing telemetry message: {} chars", message.getHexData().length());
@@ -94,15 +103,24 @@ public class TelemetryService {
 			log.debug("  Selected decoder: {}", decoder.getDecoderName());
 
 			// 4. DECODIFICA IL MESSAGGIO
+			if (context != null) context.startDecode();
 			DecodedMessage decoded = decoder.decode(message);
 			String deviceId = extractDeviceId(decoded);
 			String deviceType = decoded.getUnitInfo().getProductType();
 			int messageType = extractMessageType(message.getPayload());
+			if (context != null) {
+				context.endDecode();
+				context.setDeviceId(deviceId);
+				context.setDeviceType(deviceType);
+				context.setMessageType(messageType);
+				context.extractFromDecoded(decoded);
+			}
 
 			log.info("  Decoded: deviceType={}, deviceId={}, messageType={}", deviceType, deviceId, messageType);
 
 			String hexData = message.getHexData();
 			// 5. GESTISCI IN BASE AL MESSAGE TYPE
+			if (context != null) context.startDbSave();
 			switch (messageType) {
 			case 4, 8, 9 -> {
 				// Standard telemetry - salva nel DB
@@ -126,9 +144,7 @@ public class TelemetryService {
 			}
 			case 17 -> {
 				// GPS data - parse e salva nel DB
-//				System.err.println(hexData);
 				String gpsPayload = extractPayloadAfterHeader(hexData);
-//				System.err.println(gpsPayload);
 				MessageType17Response gps = messageTypeParser.parseMessageType17(gpsPayload, deviceId, deviceType);
 				DeviceLocationEntity savedLocation = deviceLocationRepository.save(gps, hexData);
 				log.info("  Saved GPS to database: id={}, lat={}, lon={}, alt={}m", savedLocation.getId(), gps.getLatitude(), gps.getLongitude(),
@@ -139,15 +155,26 @@ public class TelemetryService {
 				log.warn("  Unknown message type: {}", messageType);
 			}
 			}
+			if (context != null) context.endDbSave();
 
 			// 6. RECUPERA COMANDI PENDENTI PER QUESTO DEVICE
+			if (context != null) context.startCommandQuery();
 			List<CommandEntity> pendingCommands = commandRepository.findPendingCommands(deviceId);
+			if (context != null) {
+				context.endCommandQuery();
+				context.setPendingCommandsFound(pendingCommands.size());
+			}
 			log.debug("   Found {} pending commands for device {}", pendingCommands.size(), deviceId);
 
 			// 7. CODIFICA COMANDI (se presenti)
 			List<TelemetryResponse.EncodedCommand> encodedCommands = new ArrayList<>();
 			if (!pendingCommands.isEmpty()) {
+				if (context != null) context.startCommandEncode();
 				encodedCommands = encodeCommands(pendingCommands, deviceType);
+				if (context != null) {
+					context.endCommandEncode();
+					context.setCommandsSent(encodedCommands.size());
+				}
 			}
 
 			// 8. CREA RISPOSTA

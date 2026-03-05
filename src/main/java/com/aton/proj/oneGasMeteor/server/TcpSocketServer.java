@@ -14,7 +14,6 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import com.aton.proj.oneGasMeteor.config.tcp.TcpServerProperties;
-import com.aton.proj.oneGasMeteor.handler.TcpConnectionHandler;
 import com.aton.proj.oneGasMeteor.handler.TcpConnectionHandlerReadExactly;
 
 import jakarta.annotation.PreDestroy;
@@ -25,7 +24,6 @@ public class TcpSocketServer implements CommandLineRunner {
 	private static final Logger log = LoggerFactory.getLogger(TcpSocketServer.class);
 
 	private final TcpServerProperties properties;
-	private final TcpConnectionHandler connectionHandler;
 	private final TcpConnectionHandlerReadExactly connectionHandlerReadExactly;
 	private final ExecutorService executorService;
 	private final Semaphore connectionLimiter;
@@ -33,10 +31,9 @@ public class TcpSocketServer implements CommandLineRunner {
 	private ServerSocket serverSocket;
 	private volatile boolean running = false;
 
-	public TcpSocketServer(TcpServerProperties properties, TcpConnectionHandler connectionHandler,
+	public TcpSocketServer(TcpServerProperties properties,
 			TcpConnectionHandlerReadExactly connectionHandlerReadExactly) {
 		this.properties = properties;
-		this.connectionHandler = connectionHandler;
 		this.connectionHandlerReadExactly = connectionHandlerReadExactly;
 		this.executorService = Executors.newVirtualThreadPerTaskExecutor(); // Java 21 Virtual Threads
 		this.connectionLimiter = new Semaphore(properties.getMaxConnections());
