@@ -4,9 +4,12 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +45,9 @@ public class BatchInsertService {
     private final ConcurrentLinkedQueue<DeviceStatisticsEntity> statisticsQueue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<DeviceLocationEntity> locationQueue = new ConcurrentLinkedQueue<>();
 
+    /** Guarantees that at most one flush cycle runs at a time. */
+    private final ReentrantLock flushLock = new ReentrantLock();
+
     public BatchInsertService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
         log.info("BatchInsertService initialized");
@@ -65,19 +71,34 @@ public class BatchInsertService {
 
     @Scheduled(fixedDelayString = "${batch.insert.interval-ms:2000}")
     public void flushAll() {
-        flushTelemetry();
-        flushSettings();
-        flushStatistics();
-        flushLocations();
+        if (!flushLock.tryLock()) {
+            log.warn("Flush already in progress, skipping this cycle");
+            return;
+        }
+        Instant start = Instant.now();
+        int[] counts = new int[4]; // telemetry, settings, statistics, locations
+        log.info("Batch flush started — queues: telemetry={}, settings={}, statistics={}, locations={}",
+                telemetryQueue.size(), settingsQueue.size(), statisticsQueue.size(), locationQueue.size());
+        try {
+            counts[0] = flushTelemetry();
+            counts[1] = flushSettings();
+            counts[2] = flushStatistics();
+            counts[3] = flushLocations();
+        } finally {
+            flushLock.unlock();
+            long ms = Duration.between(start, Instant.now()).toMillis();
+            log.info("Batch flush completed in {} ms — inserted: telemetry={}, settings={}, statistics={}, locations={}",
+                    ms, counts[0], counts[1], counts[2], counts[3]);
+        }
     }
 
     // -------------------------------------------------------------------------
     // Flush methods
     // -------------------------------------------------------------------------
 
-    private void flushTelemetry() {
+    private int flushTelemetry() {
         List<TelemetryEntity> batch = drain(telemetryQueue);
-        if (batch.isEmpty()) return;
+        if (batch.isEmpty()) return 0;
 
         log.debug("Flushing {} telemetry records via batch INSERT", batch.size());
         String sql = "INSERT INTO telemetry_data " +
@@ -111,15 +132,17 @@ public class BatchInsertService {
                 }
             });
             log.info("Batch INSERT telemetry: {} records persisted", batch.size());
+            return batch.size();
         } catch (Exception ex) {
             log.error("Batch INSERT failed for telemetry ({} records), re-enqueuing: {}", batch.size(), ex.getMessage(), ex);
             telemetryQueue.addAll(batch);
+            return 0;
         }
     }
 
-    private void flushSettings() {
+    private int flushSettings() {
         List<DeviceSettingsEntity> batch = drain(settingsQueue);
-        if (batch.isEmpty()) return;
+        if (batch.isEmpty()) return 0;
 
         log.debug("Flushing {} device_settings records via batch INSERT", batch.size());
         String sql = "INSERT INTO device_settings " +
@@ -143,15 +166,17 @@ public class BatchInsertService {
                 }
             });
             log.info("Batch INSERT device_settings: {} records persisted", batch.size());
+            return batch.size();
         } catch (Exception ex) {
             log.error("Batch INSERT failed for device_settings ({} records), re-enqueuing: {}", batch.size(), ex.getMessage(), ex);
             settingsQueue.addAll(batch);
+            return 0;
         }
     }
 
-    private void flushStatistics() {
+    private int flushStatistics() {
         List<DeviceStatisticsEntity> batch = drain(statisticsQueue);
-        if (batch.isEmpty()) return;
+        if (batch.isEmpty()) return 0;
 
         log.debug("Flushing {} device_statistics records via batch INSERT", batch.size());
         String sql = "INSERT INTO device_statistics " +
@@ -192,15 +217,17 @@ public class BatchInsertService {
                 }
             });
             log.info("Batch INSERT device_statistics: {} records persisted", batch.size());
+            return batch.size();
         } catch (Exception ex) {
             log.error("Batch INSERT failed for device_statistics ({} records), re-enqueuing: {}", batch.size(), ex.getMessage(), ex);
             statisticsQueue.addAll(batch);
+            return 0;
         }
     }
 
-    private void flushLocations() {
+    private int flushLocations() {
         List<DeviceLocationEntity> batch = drain(locationQueue);
-        if (batch.isEmpty()) return;
+        if (batch.isEmpty()) return 0;
 
         log.debug("Flushing {} device_locations records via batch INSERT", batch.size());
         String sql = "INSERT INTO device_locations " +
@@ -244,9 +271,11 @@ public class BatchInsertService {
                 }
             });
             log.info("Batch INSERT device_locations: {} records persisted", batch.size());
+            return batch.size();
         } catch (Exception ex) {
             log.error("Batch INSERT failed for device_locations ({} records), re-enqueuing: {}", batch.size(), ex.getMessage(), ex);
             locationQueue.addAll(batch);
+            return 0;
         }
     }
 
