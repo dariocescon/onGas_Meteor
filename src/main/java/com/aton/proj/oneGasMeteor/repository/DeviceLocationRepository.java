@@ -17,6 +17,11 @@ public interface DeviceLocationRepository {
     DeviceLocationEntity save(MessageType17Response gps, String rawMessage);
 
     /**
+     * Costruisce un DeviceLocationEntity senza salvarlo (usato per batch insert)
+     */
+    DeviceLocationEntity buildEntity(MessageType17Response gps, String rawMessage);
+
+    /**
      * Trova per device ID
      */
     List<DeviceLocationEntity> findByDeviceId(String deviceId);

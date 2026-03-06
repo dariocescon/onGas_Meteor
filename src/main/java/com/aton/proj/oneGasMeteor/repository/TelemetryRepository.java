@@ -17,6 +17,11 @@ public interface TelemetryRepository {
      * Salva i dati di telemetria decodificati
      */
     TelemetryEntity save(String deviceId, String deviceType, String rawMessage, DecodedMessage decoded);
+
+    /**
+     * Costruisce un TelemetryEntity senza salvarlo (usato per batch insert)
+     */
+    TelemetryEntity buildEntity(String deviceId, String deviceType, String rawMessage, DecodedMessage decoded);
     
     /**
      * Trova per ID

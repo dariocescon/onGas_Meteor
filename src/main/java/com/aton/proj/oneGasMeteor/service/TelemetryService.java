@@ -55,6 +55,7 @@ public class TelemetryService {
 	private final DeviceSettingsRepository deviceSettingsRepository;
 	private final DeviceStatisticsRepository deviceStatisticsRepository;
 	private final DeviceLocationRepository deviceLocationRepository;
+	private final BatchInsertService batchInsertService;
 
 	@Value("${command.max.per.response:10}")
 	private int maxCommandsPerResponse;
@@ -64,7 +65,8 @@ public class TelemetryService {
 			MessageTypeParser messageTypeParser, ObjectMapper objectMapper,
 			DeviceSettingsRepository deviceSettingsRepository,
 			DeviceStatisticsRepository deviceStatisticsRepository,
-			DeviceLocationRepository deviceLocationRepository) {
+			DeviceLocationRepository deviceLocationRepository,
+			BatchInsertService batchInsertService) {
 		this.decoderFactory = decoderFactory;
 		this.encoderFactory = encoderFactory;
 		this.telemetryRepository = telemetryRepository;
@@ -74,6 +76,7 @@ public class TelemetryService {
 		this.deviceSettingsRepository = deviceSettingsRepository;
 		this.deviceStatisticsRepository = deviceStatisticsRepository;
 		this.deviceLocationRepository = deviceLocationRepository;
+		this.batchInsertService = batchInsertService;
 
 		log.info("TelemetryService initialized");
 	}
@@ -123,33 +126,39 @@ public class TelemetryService {
 			if (context != null) context.startDbSave();
 			switch (messageType) {
 			case 4, 8, 9 -> {
-				// Standard telemetry - salva nel DB
-				TelemetryEntity savedEntity = telemetryRepository.save(deviceId, deviceType, hexData, decoded);
-				log.info("  Saved to database: id={}", savedEntity.getId());
+				// Standard telemetry - accoda per batch insert
+				TelemetryEntity entity = telemetryRepository
+						.buildEntity(deviceId, deviceType, hexData, decoded);
+				batchInsertService.enqueue(entity);
+				log.info("  Enqueued telemetry for batch insert: deviceId={}", deviceId);
 			}
 			case 6 -> {
-				// Settings response - parse e salva nel DB
+				// Settings response - parse e accoda per batch insert
 				String settingsPayload = extractPayloadAfterHeader(hexData);
 				MessageType6Response settings = messageTypeParser.parseMessageType6(settingsPayload, deviceId,
 						deviceType);
-				DeviceSettingsEntity savedSettings = deviceSettingsRepository.save(settings, hexData);
-				log.info("  Saved settings to database: id={}, parameters={}", savedSettings.getId(), settings.getSettings().size());
+				DeviceSettingsEntity settingsEntity = deviceSettingsRepository
+						.buildEntity(settings, hexData);
+				batchInsertService.enqueue(settingsEntity);
+				log.info("  Enqueued settings for batch insert: deviceId={}, parameters={}", deviceId, settings.getSettings().size());
 			}
 			case 16 -> {
-				// ICCID & Statistics - parse e salva nel DB
+				// ICCID & Statistics - parse e accoda per batch insert
 				String statsPayload = extractPayloadAfterHeader(hexData);
 				MessageType16Response stats = messageTypeParser.parseMessageType16(statsPayload, deviceId, deviceType);
-				DeviceStatisticsEntity savedStats = deviceStatisticsRepository.save(stats, hexData);
-				log.info("  Saved statistics to database: id={}, ICCID={}, Energy={}mAh", savedStats.getId(), stats.getIccid(), stats.getEnergyUsed());
+				DeviceStatisticsEntity statsEntity = deviceStatisticsRepository
+						.buildEntity(stats, hexData);
+				batchInsertService.enqueue(statsEntity);
+				log.info("  Enqueued statistics for batch insert: deviceId={}, ICCID={}", deviceId, stats.getIccid());
 			}
 			case 17 -> {
-				// GPS data - parse e salva nel DB
+				// GPS data - parse e accoda per batch insert
 				String gpsPayload = extractPayloadAfterHeader(hexData);
 				MessageType17Response gps = messageTypeParser.parseMessageType17(gpsPayload, deviceId, deviceType);
-				DeviceLocationEntity savedLocation = deviceLocationRepository.save(gps, hexData);
-				log.info("  Saved GPS to database: id={}, lat={}, lon={}, alt={}m", savedLocation.getId(), gps.getLatitude(), gps.getLongitude(),
-						gps.getAltitude());
-				log.info("  Google Maps: {}", gps.getGoogleMapsLink());
+				DeviceLocationEntity locationEntity = deviceLocationRepository
+						.buildEntity(gps, hexData);
+				batchInsertService.enqueue(locationEntity);
+				log.info("  Enqueued GPS for batch insert: deviceId={}, lat={}, lon={}", deviceId, gps.getLatitude(), gps.getLongitude());
 			}
 			default -> {
 				log.warn("  Unknown message type: {}", messageType);

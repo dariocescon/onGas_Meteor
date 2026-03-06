@@ -34,14 +34,7 @@ public class SqlServerDeviceSettingsRepository implements DeviceSettingsReposito
     @Override
     public DeviceSettingsEntity save(MessageType6Response settings, String rawMessage) {
         try {
-            DeviceSettingsEntity entity = new DeviceSettingsEntity();
-            entity.setDeviceId(settings.getDeviceId());
-            entity.setDeviceType(settings.getDeviceType());
-            entity.setRawMessage(rawMessage);
-            entity.setReceivedAt(LocalDateTime.now());
-
-            String settingsJson = objectMapper.writeValueAsString(settings.getSettings());
-            entity.setSettingsJson(settingsJson);
+            DeviceSettingsEntity entity = buildEntity(settings, rawMessage);
 
             DeviceSettingsEntity saved = jpaRepository.save(entity);
             log.debug(" Saved device settings: id={}, deviceId={}", saved.getId(), settings.getDeviceId());
@@ -51,6 +44,27 @@ public class SqlServerDeviceSettingsRepository implements DeviceSettingsReposito
         } catch (Exception e) {
             log.error(" Failed to save device settings for device: {}", settings.getDeviceId(), e);
             throw new RuntimeException("Failed to save device settings", e);
+        }
+    }
+
+    /**
+     * Costruisce un DeviceSettingsEntity senza salvarlo (usato per batch insert)
+     */
+    public DeviceSettingsEntity buildEntity(MessageType6Response settings, String rawMessage) {
+        try {
+            DeviceSettingsEntity entity = new DeviceSettingsEntity();
+            entity.setDeviceId(settings.getDeviceId());
+            entity.setDeviceType(settings.getDeviceType());
+            entity.setRawMessage(rawMessage);
+            entity.setReceivedAt(LocalDateTime.now());
+
+            String settingsJson = objectMapper.writeValueAsString(settings.getSettings());
+            entity.setSettingsJson(settingsJson);
+
+            return entity;
+        } catch (Exception e) {
+            log.error(" Failed to build device settings entity for device: {}", settings.getDeviceId(), e);
+            throw new RuntimeException("Failed to build device settings entity", e);
         }
     }
 

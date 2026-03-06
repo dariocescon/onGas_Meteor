@@ -17,6 +17,11 @@ public interface DeviceSettingsRepository {
     DeviceSettingsEntity save(MessageType6Response settings, String rawMessage);
 
     /**
+     * Costruisce un DeviceSettingsEntity senza salvarlo (usato per batch insert)
+     */
+    DeviceSettingsEntity buildEntity(MessageType6Response settings, String rawMessage);
+
+    /**
      * Trova per device ID
      */
     List<DeviceSettingsEntity> findByDeviceId(String deviceId);
