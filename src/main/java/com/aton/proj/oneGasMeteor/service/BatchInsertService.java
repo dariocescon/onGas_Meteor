@@ -73,7 +73,7 @@ public class BatchInsertService {
     public void flushAll() {
         if (telemetryQueue.isEmpty() && settingsQueue.isEmpty()
                 && statisticsQueue.isEmpty() && locationQueue.isEmpty()) {
-            log.debug("All queues empty, skipping flush cycle");
+            log.trace("All queues empty, skipping flush cycle");
             return;
         }
         if (!flushLock.tryLock()) {
