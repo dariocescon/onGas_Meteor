@@ -71,6 +71,11 @@ public class BatchInsertService {
 
     @Scheduled(fixedDelayString = "${batch.insert.interval-ms:2000}")
     public void flushAll() {
+        if (telemetryQueue.isEmpty() && settingsQueue.isEmpty()
+                && statisticsQueue.isEmpty() && locationQueue.isEmpty()) {
+            log.debug("All queues empty, skipping flush cycle");
+            return;
+        }
         if (!flushLock.tryLock()) {
             log.warn("Flush already in progress, skipping this cycle");
             return;
