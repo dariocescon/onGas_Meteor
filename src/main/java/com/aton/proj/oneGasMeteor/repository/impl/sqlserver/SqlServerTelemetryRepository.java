@@ -36,6 +36,24 @@ public class SqlServerTelemetryRepository implements TelemetryRepository {
 	@Override
 	public TelemetryEntity save(String deviceId, String deviceType, String rawMessage, DecodedMessage decoded) {
 		try {
+			TelemetryEntity entity = buildEntity(deviceId, deviceType, rawMessage, decoded);
+
+			TelemetryEntity saved = jpaRepository.save(entity);
+			log.debug(" Saved telemetry: id={}, deviceId={}", saved.getId(), deviceId);
+
+			return saved;
+
+		} catch (Exception e) {
+			log.error(" Failed to save telemetry for device: {}", deviceId, e);
+			throw new RuntimeException("Failed to save telemetry", e);
+		}
+	}
+
+	/**
+	 * Costruisce un TelemetryEntity senza salvarlo (usato per batch insert)
+	 */
+	public TelemetryEntity buildEntity(String deviceId, String deviceType, String rawMessage, DecodedMessage decoded) {
+		try {
 			TelemetryEntity entity = new TelemetryEntity();
 			entity.setDeviceId(deviceId);
 			entity.setDeviceType(deviceType);
@@ -50,14 +68,10 @@ public class SqlServerTelemetryRepository implements TelemetryRepository {
 			// Estrai campi principali per query veloci
 			extractMainFields(entity, decoded);
 
-			TelemetryEntity saved = jpaRepository.save(entity);
-			log.debug(" Saved telemetry: id={}, deviceId={}", saved.getId(), deviceId);
-
-			return saved;
-
+			return entity;
 		} catch (Exception e) {
-			log.error(" Failed to save telemetry for device: {}", deviceId, e);
-			throw new RuntimeException("Failed to save telemetry", e);
+			log.error(" Failed to build telemetry entity for device: {}", deviceId, e);
+			throw new RuntimeException("Failed to build telemetry entity", e);
 		}
 	}
 

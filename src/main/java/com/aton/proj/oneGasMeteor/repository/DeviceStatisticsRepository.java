@@ -17,6 +17,11 @@ public interface DeviceStatisticsRepository {
     DeviceStatisticsEntity save(MessageType16Response stats, String rawMessage);
 
     /**
+     * Costruisce un DeviceStatisticsEntity senza salvarlo (usato per batch insert)
+     */
+    DeviceStatisticsEntity buildEntity(MessageType16Response stats, String rawMessage);
+
+    /**
      * Trova per device ID
      */
     List<DeviceStatisticsEntity> findByDeviceId(String deviceId);

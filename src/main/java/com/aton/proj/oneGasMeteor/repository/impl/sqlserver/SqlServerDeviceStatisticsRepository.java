@@ -31,27 +31,7 @@ public class SqlServerDeviceStatisticsRepository implements DeviceStatisticsRepo
     @Override
     public DeviceStatisticsEntity save(MessageType16Response stats, String rawMessage) {
         try {
-            DeviceStatisticsEntity entity = new DeviceStatisticsEntity();
-            entity.setDeviceId(stats.getDeviceId());
-            entity.setDeviceType(stats.getDeviceType());
-            entity.setRawMessage(rawMessage);
-            entity.setReceivedAt(LocalDateTime.now());
-
-            entity.setIccid(stats.getIccid());
-            entity.setEnergyUsed(stats.getEnergyUsed());
-            entity.setMinTemperature(stats.getMinTemperature());
-            entity.setMaxTemperature(stats.getMaxTemperature());
-            entity.setMessageCount(stats.getMessageCount());
-            entity.setDeliveryFailCount(stats.getDeliveryFailCount());
-            entity.setTotalSendTime(stats.getTotalSendTime());
-            entity.setMaxSendTime(stats.getMaxSendTime());
-            entity.setMinSendTime(stats.getMinSendTime());
-            entity.setRssiTotal(stats.getRssiTotal());
-            entity.setRssiValidCount(stats.getRssiValidCount());
-            entity.setRssiFailCount(stats.getRssiFailCount());
-            entity.setAverageSendTime(stats.getAverageSendTime());
-            entity.setAverageRssi(stats.getAverageRssi());
-            entity.setDeliverySuccessRate(stats.getDeliverySuccessRate());
+            DeviceStatisticsEntity entity = buildEntity(stats, rawMessage);
 
             DeviceStatisticsEntity saved = jpaRepository.save(entity);
             log.debug(" Saved device statistics: id={}, deviceId={}", saved.getId(), stats.getDeviceId());
@@ -62,6 +42,35 @@ public class SqlServerDeviceStatisticsRepository implements DeviceStatisticsRepo
             log.error(" Failed to save device statistics for device: {}", stats.getDeviceId(), e);
             throw new RuntimeException("Failed to save device statistics", e);
         }
+    }
+
+    /**
+     * Costruisce un DeviceStatisticsEntity senza salvarlo (usato per batch insert)
+     */
+    public DeviceStatisticsEntity buildEntity(MessageType16Response stats, String rawMessage) {
+        DeviceStatisticsEntity entity = new DeviceStatisticsEntity();
+        entity.setDeviceId(stats.getDeviceId());
+        entity.setDeviceType(stats.getDeviceType());
+        entity.setRawMessage(rawMessage);
+        entity.setReceivedAt(LocalDateTime.now());
+
+        entity.setIccid(stats.getIccid());
+        entity.setEnergyUsed(stats.getEnergyUsed());
+        entity.setMinTemperature(stats.getMinTemperature());
+        entity.setMaxTemperature(stats.getMaxTemperature());
+        entity.setMessageCount(stats.getMessageCount());
+        entity.setDeliveryFailCount(stats.getDeliveryFailCount());
+        entity.setTotalSendTime(stats.getTotalSendTime());
+        entity.setMaxSendTime(stats.getMaxSendTime());
+        entity.setMinSendTime(stats.getMinSendTime());
+        entity.setRssiTotal(stats.getRssiTotal());
+        entity.setRssiValidCount(stats.getRssiValidCount());
+        entity.setRssiFailCount(stats.getRssiFailCount());
+        entity.setAverageSendTime(stats.getAverageSendTime());
+        entity.setAverageRssi(stats.getAverageRssi());
+        entity.setDeliverySuccessRate(stats.getDeliverySuccessRate());
+
+        return entity;
     }
 
     @Override
