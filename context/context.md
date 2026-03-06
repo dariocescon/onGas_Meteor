@@ -123,17 +123,18 @@ TcpSocketServer
     │  Accetta connessione, crea virtual thread
     ▼
 TcpConnectionHandler (o TcpConnectionHandlerReadExactly)
-    │  1. Legge bytes raw dal socket (buffer 4096 o header+body esatti)
-    │  2. Crea TelemetryMessage { payload, hexData, receivedAt, sourceAddress }
+    │  1. Crea ProcessingContext { clientAddress, receivedAt } per metriche
+    │  2. Legge bytes raw dal socket (buffer 4096 o header+body esatti)
+    │  3. Crea TelemetryMessage { payload, hexData, receivedAt, sourceAddress }
     ▼
-TelemetryService.processTelemetry(TelemetryMessage)
+TelemetryService.processTelemetry(TelemetryMessage, ProcessingContext)
     │
-    │  3. DecoderFactory.getDecoder(payload)
+    │  4. DecoderFactory.getDecoder(payload)
     │     └─ Scorre decoder ordinati per @Order
     │     └─ Tek822Decoder.canDecode(payload) → true se product type noto
     │     └─ Fallback: UnknownDeviceDecoder
     │
-    │  4. decoder.decode(message)
+    │  5. decoder.decode(message)
     │     └─ TekMessageDecoder.decode()
     │        ├─ decodeProductType()  → byte[0]
     │        ├─ decodeVersions()     → byte[1], byte[2]
@@ -147,30 +148,33 @@ TelemetryService.processTelemetry(TelemetryMessage)
     │        ├─ decodeBatteryStatus()→ byte[6]
     │        └─ (se msgType 4/8/9) decodeDiagnosticData() + decodeMeasurementData()
     │
-    │  5. Switch su messageType:
-    │     ├─ 4/8/9 → TelemetryRepository.save()    → TELEMETRY_DATA
-    │     ├─ 6    → MessageTypeParser.parseType6()  → DEVICE_SETTINGS
-    │     ├─ 16   → MessageTypeParser.parseType16() → DEVICE_STATISTICS
-    │     └─ 17   → MessageTypeParser.parseType17() → DEVICE_LOCATIONS
+    │  6. Switch su messageType:
+    │     ├─ 4/8/9 → BatchInsertService.enqueue(TelemetryEntity)   → TELEMETRY_DATA
+    │     ├─ 6    → MessageTypeParser.parseType6()  + BatchInsertService.enqueue(DeviceSettingsEntity)   → DEVICE_SETTINGS
+    │     ├─ 16   → MessageTypeParser.parseType16() + BatchInsertService.enqueue(DeviceStatisticsEntity) → DEVICE_STATISTICS
+    │     └─ 17   → MessageTypeParser.parseType17() + BatchInsertService.enqueue(DeviceLocationEntity)   → DEVICE_LOCATIONS
     │
-    │  6. CommandRepository.findPendingCommands(deviceId)
+    │  7. CommandRepository.findPendingCommands(deviceId)
     │     └─ Recupera comandi con status=PENDING per quell'IMEI
     │
-    │  7. (se comandi presenti) EncoderFactory.getEncoder(deviceType)
+    │  8. (se comandi presenti) EncoderFactory.getEncoder(deviceType)
     │     └─ Tek822Encoder.encode(deviceCommands)
     │        ├─ ensureRebootIfNeeded() → auto-append R3=ACTIVE per S-commands
     │        ├─ Per ogni comando: encodeXxx() → ASCII string
     │        └─ asciiToHex() → HEX string
     │
-    │  8. Crea TelemetryResponse { deviceId, deviceType, commands[] }
+    │  9. Crea TelemetryResponse { deviceId, deviceType, commands[] }
     ▼
 TcpConnectionHandler
-    │  9.  Concatena comandi HEX con virgola (ControllerUtils.concatenateCommands)
-    │  10. Invia risposta TCP al device
-    │  11. TelemetryService.markCommandsAsSent() → status=SENT nel DB
+    │  10. Concatena comandi HEX con virgola (ControllerUtils.concatenateCommands)
+    │  11. Invia risposta TCP al device
+    │  12. TelemetryService.markCommandsAsSent() → status=SENT nel DB
+    │  13. ProcessingMetricsRepository.save(context.toEntity()) → PROCESSING_METRICS
     ▼
 Dispositivo IoT riceve risposta
 ```
+
+> **Nota**: `BatchInsertService` persiste le entity su SQL Server in modo asincrono a intervalli di `batch.insert.interval-ms=2000` ms con batch di `batch.insert.size=500` record. Il sotto-passo 6 accoda le entity senza bloccare il flusso principale.
 
 ---
 
@@ -193,7 +197,8 @@ Dispositivo IoT riceve risposta
 
 #### `TcpConnectionHandlerReadExactly`
 - **Tipo**: `@Component`
-- **Funzione**: Variante del handler sopra che legge esattamente **17 byte di header** e poi `declaredLength` byte di body (lunghezza dichiarata nei byte 15-16 del payload). Stessa logica di risposta.
+- **Funzione**: Variante del handler sopra che legge esattamente **17 byte di header** e poi `declaredLength` byte di body (lunghezza dichiarata nei byte 15-16 del payload). Crea un `ProcessingContext` per raccogliere metriche di performance (tempi di lettura, decodifica, DB save, encoding comandi, invio). Al termine chiama `ProcessingMetricsRepository.save(context.toEntity())` se disponibile. Stessa logica di risposta.
+- **Iniezione**: `TelemetryService`, `ProcessingMetricsRepository` (opzionale — via `@Nullable`).
 
 ---
 
@@ -228,8 +233,8 @@ Dispositivo IoT riceve risposta
 
 #### `TelemetryService`
 - **Tipo**: `@Service`
-- **Funzione**: Orchestratore principale. Riceve `TelemetryMessage`, seleziona il decoder, decodifica, salva nel DB in base al messageType, recupera comandi pendenti, codifica con l'encoder, ritorna `TelemetryResponse`.
-- **Iniezione**: `DecoderFactory`, `EncoderFactory`, `TelemetryRepository`, `CommandRepository`, `MessageTypeParser`, `ObjectMapper`, `DeviceSettingsRepository`, `DeviceStatisticsRepository`, `DeviceLocationRepository`.
+- **Funzione**: Orchestratore principale. Riceve `TelemetryMessage`, seleziona il decoder, decodifica, salva nel DB in base al messageType, recupera comandi pendenti, codifica con l'encoder, ritorna `TelemetryResponse`. Supporta overload `processTelemetry(message, context)` per raccogliere metriche di performance tramite `ProcessingContext`. Le entity di telemetria, settings, statistics e location vengono accodate via `BatchInsertService` per un insert batch asincrono.
+- **Iniezione**: `DecoderFactory`, `EncoderFactory`, `TelemetryRepository`, `CommandRepository`, `MessageTypeParser`, `ObjectMapper`, `DeviceSettingsRepository`, `DeviceStatisticsRepository`, `DeviceLocationRepository`, `BatchInsertService`.
 - **Property**: `command.max.per.response=10`
 
 #### `CommandService`
@@ -237,9 +242,15 @@ Dispositivo IoT riceve risposta
 - **Funzione**: Valida e crea comandi. Controlla `deviceType` (deve essere nei tipi abilitati), `commandType` (deve essere uno dei 17 validi) e parametri obbligatori per tipo.
 - **Mappa**: `REQUIRED_PARAMS` definisce i parametri obbligatori per ogni tipo di comando.
 
+#### `BatchInsertService`
+- **Tipo**: `@Service`, `@ConditionalOnProperty(database.type=sqlserver, matchIfMissing=true)`
+- **Funzione**: Raccoglie le entity (`TelemetryEntity`, `DeviceSettingsEntity`, `DeviceStatisticsEntity`, `DeviceLocationEntity`) in code concorrenti (`ConcurrentLinkedQueue`) e le persiste su SQL Server tramite `JdbcTemplate` batch INSERT ogni `batch.insert.interval-ms=2000` ms. Utilizza un `ReentrantLock` per garantire che al massimo un ciclo di flush sia in esecuzione contemporaneamente.
+- **Property**: `batch.insert.size=500` (dimensione batch), `batch.insert.interval-ms=2000` (intervallo flush in ms)
+
 #### `DataCleanupService`
 - **Tipo**: `@Service`, `@ConditionalOnProperty(cleanup.enabled=true)`
-- **Funzione**: Scheduled cleanup di telemetria (retention 30 gg), comandi (retention 7 gg) e dati device. Cron: `0 0 2 * * *` (ogni notte alle 2:00).
+- **Funzione**: Scheduled cleanup di telemetria (retention 30 gg), comandi (retention 7 gg), dati device e metriche di performance (retention 90 gg). Cron: `0 0 2 * * *` (ogni notte alle 2:00).
+- **Iniezione**: `TelemetryRepository`, `CommandRepository`, `DeviceSettingsRepository`, `DeviceStatisticsRepository`, `DeviceLocationRepository`, `ProcessingMetricsRepository` (opzionale — via `@Nullable`).
 
 ---
 
@@ -310,6 +321,7 @@ String getEncoderName();
 | `DecodedMessage` | Risultato decodifica. Inner classes: `UnitInfo`, `UniqueIdentifier`, `ContactReason`, `AlarmStatus`, `LastReset`, `SignalStrength`, `DiagnosticInfo`, `BatteryStatus`, `UnitSetup`, `List<MeasurementData>` |
 | `DeviceCommand` | Comando da inviare. Campi: `id`, `deviceId`, `deviceType`, `commandType`, `parameters` (Map), `encodedCommandASCII`, `encodedCommandHEX` |
 | `TelemetryResponse` | Risposta del servizio. Contiene `deviceId`, `deviceType`, `commands` (List), `receivedAt`, `processedAt` |
+| `ProcessingContext` | Accumula metriche di performance durante l'elaborazione di un messaggio TCP (tempi di read, decode, DB save, command query, encode, send; snapshot batteria, segnale, contact reason). Creato in `TcpConnectionHandlerReadExactly`, attraversa il `TelemetryService`, persiste via `ProcessingMetricsRepository`. Metodo `toEntity()` converte in `ProcessingMetricsEntity`. |
 | `MessageType6Response` | Risultato parse settings (tipo 6) |
 | `MessageType16Response` | Risultato parse statistiche + ICCID (tipo 16) |
 | `MessageType17Response` | Risultato parse GPS (tipo 17). Include `getGoogleMapsLink()` |
@@ -325,6 +337,7 @@ String getEncoderName();
 | `DeviceSettingsEntity` | `DEVICE_SETTINGS` |
 | `DeviceStatisticsEntity` | `DEVICE_STATISTICS` |
 | `DeviceLocationEntity` | `DEVICE_LOCATIONS` |
+| `ProcessingMetricsEntity` | `PROCESSING_METRICS` — metriche di performance per ogni elaborazione TCP |
 | `mongodb/TelemetryDocument` | MongoDB (commentato, uso futuro) |
 | `mongodb/CommandDocument` | MongoDB (commentato, uso futuro) |
 
@@ -338,6 +351,7 @@ String getEncoderName();
 - `DeviceSettingsRepository`
 - `DeviceStatisticsRepository`
 - `DeviceLocationRepository`
+- `ProcessingMetricsRepository` — include `save(entity)` e `deleteOlderThan(threshold)`
 
 #### SQL Server (`@ConditionalOnProperty(database.type=sqlserver)`)
 - `SqlServerTelemetryRepository` — delega a `TelemetryJpaRepository`
@@ -345,6 +359,7 @@ String getEncoderName();
 - `SqlServerDeviceSettingsRepository` — delega a `DeviceSettingsJpaRepository`
 - `SqlServerDeviceStatisticsRepository` — delega a `DeviceStatisticsJpaRepository`
 - `SqlServerDeviceLocationRepository` — delega a `DeviceLocationJpaRepository`
+- `SqlServerProcessingMetricsRepository` — attivo solo quando `metrics.enabled=true`; delega a `ProcessingMetricsJpaRepository`
 - JPA interfaces corrispondenti estendono `JpaRepository`
 
 #### MongoDB (opzionale)
@@ -725,6 +740,42 @@ PENDING → EXPIRED
 
 ---
 
+### Tabella: PROCESSING_METRICS
+
+| Colonna | Tipo SQL Server | Note |
+|---------|----------------|------|
+| `id` | `bigint` PK | Auto-increment |
+| `device_id` | `nvarchar(50)` | IMEI del device |
+| `device_type` | `nvarchar(50)` | Es. "TEK822V1" |
+| `message_type` | `int` | Tipo di messaggio (4/6/8/9/16/17) |
+| `client_address` | `nvarchar(100)` | Indirizzo IP:porta del device |
+| `payload_length_bytes` | `int` | Lunghezza payload grezzo |
+| `declared_body_length` | `int` | Lunghezza body dichiarata |
+| `measurement_count` | `int` | Numero misurazioni nel messaggio |
+| `pending_commands_found` | `int` | Comandi pendenti trovati |
+| `commands_sent` | `int` | Comandi inviati nella risposta |
+| `response_size_bytes` | `int` | Dimensione risposta TCP in byte |
+| `total_processing_time_ms` | `bigint` | Tempo totale elaborazione (ms) |
+| `read_time_ms` | `bigint` | Tempo lettura socket (ms) |
+| `decode_time_ms` | `bigint` | Tempo decodifica payload (ms) |
+| `db_save_time_ms` | `bigint` | Tempo persistenza DB (ms) |
+| `command_query_time_ms` | `bigint` | Tempo query comandi pendenti (ms) |
+| `command_encode_time_ms` | `bigint` | Tempo encoding comandi (ms) |
+| `send_time_ms` | `bigint` | Tempo invio risposta (ms) |
+| `battery_voltage` | `float` | Tensione batteria (V) |
+| `battery_percentage` | `float` | Percentuale batteria |
+| `signal_strength` | `int` | RSSI o CSQ |
+| `contact_reason` | `nvarchar(200)` | Motivo di contatto (bitmap) |
+| `firmware_version` | `nvarchar(20)` | Versione firmware |
+| `success` | `bit` NOT NULL | Elaborazione riuscita |
+| `error_message` | `nvarchar(500)` | Messaggio di errore (se fallita) |
+| `received_at` | `datetime2` NOT NULL | Timestamp ricezione |
+| `completed_at` | `datetime2` | Timestamp fine elaborazione |
+
+**Indici**: `idx_pm_device_id`, `idx_pm_received_at`, `idx_pm_message_type`, `idx_pm_success`
+
+> **Nota**: La tabella `PROCESSING_METRICS` viene scritta solo se `metrics.enabled=true` (default). Il cleanup automatico rispetta `cleanup.metrics.retention.days=90`.
+
 ## 8. API REST
 
 ### `GET /status`
@@ -902,7 +953,7 @@ Stato del servizio cleanup.
 | `spring.datasource.password` | *(obbligatorio)* | `SQL_DB_PASSWORD` | Password SQL Server |
 | `spring.datasource.driver-class-name` | `com.microsoft.sqlserver.jdbc.SQLServerDriver` | — | Driver JDBC |
 | `spring.jpa.hibernate.ddl-auto` | `validate` | — | Hibernate DDL: validate (non modifica lo schema) |
-| `spring.jpa.show-sql` | `true` | — | Log SQL queries |
+| `spring.jpa.show-sql` | `false` | — | Log SQL queries |
 | `spring.jpa.properties.hibernate.dialect` | `org.hibernate.dialect.SQLServerDialect` | — | Dialetto Hibernate |
 | `spring.datasource.hikari.maximum-pool-size` | `100` | — | Numero massimo di connessioni nel pool HikariCP |
 | `spring.datasource.hikari.minimum-idle` | `10` | — | Connessioni minime mantenute idle nel pool HikariCP |
@@ -913,8 +964,15 @@ Stato del servizio cleanup.
 | `cleanup.cron` | `0 0 2 * * *` | — | Cron del cleanup (ogni notte alle 2:00) |
 | `cleanup.telemetry.retention.days` | `30` | — | Giorni di retention telemetria |
 | `cleanup.commands.retention.days` | `7` | — | Giorni di retention comandi |
+| `cleanup.metrics.retention.days` | `90` | — | Giorni di retention metriche di performance |
+| `metrics.enabled` | `true` | — | Abilita salvataggio metriche di performance su DB |
+| `batch.insert.size` | `500` | — | Numero di record per batch INSERT |
+| `batch.insert.interval-ms` | `2000` | — | Intervallo flush batch in ms |
 | `logging.level.com.aton.proj.oneGasMeteor` | `DEBUG` | — | Log level applicazione |
 | `logging.level.org.springframework.web` | `INFO` | — | Log level Spring Web |
+| `logging.level.org.hibernate.SQL` | `INFO` | — | Log level Hibernate SQL |
+| `logging.level.org.springframework.integration` | `DEBUG` | — | Log level Spring Integration |
+| `logging.level.org.springframework.integration.ip` | `TRACE` | — | Log level Spring Integration IP (TCP) |
 | `logging.config` | `classpath:log4j2.properties` | — | Config Log4j2 |
 
 ### Configurazione MongoDB (opzionale — commentata nel file)
@@ -1118,6 +1176,16 @@ La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 
 #### `OneGasMeteorApplicationTests`
 - Test di avvio del contesto Spring (smoke test)
+
+#### `model/ProcessingContextTest`
+- Test creazione `ProcessingContext` con indirizzo client
+- Test metodi di timing (`startRead/endRead`, `startDecode/endDecode`, ecc.)
+- Test `complete(success, errorMessage)` per successo e errore
+- Test setter e getter dei campi di identificazione e payload
+- Test `extractFromDecoded()` per popolamento da `DecodedMessage` (IMEI, tipo device, firmware, batteria, segnale, contact reason multipli)
+- Test `toEntity()` — conversione a `ProcessingMetricsEntity` con verifica di tutti i campi
+- Test gestione valori batteria non validi (no eccezione, campo null)
+- Test priorità CSQ su RSSI per `signalStrength`
 
 ### Eseguire i test
 
