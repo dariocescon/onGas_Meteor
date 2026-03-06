@@ -8,8 +8,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,30 +73,51 @@ public class BatchInsertService {
 
     @Scheduled(fixedDelayString = "${batch.insert.interval-ms:2000}")
     public void flushAll() {
+
         if (telemetryQueue.isEmpty() && settingsQueue.isEmpty()
                 && statisticsQueue.isEmpty() && locationQueue.isEmpty()) {
             log.trace("All queues empty, skipping flush cycle");
             return;
         }
+
         if (!flushLock.tryLock()) {
             log.warn("Flush already in progress, skipping this cycle");
             return;
         }
+
         Instant start = Instant.now();
-        int[] counts = new int[4]; // telemetry, settings, statistics, locations
-        log.info("Batch flush started — queues: telemetry={}, settings={}, statistics={}, locations={}",
-                telemetryQueue.size(), settingsQueue.size(), statisticsQueue.size(), locationQueue.size());
+        int[] counts = new int[4];
+
+        int maxBatchesPerCycle = 10;
+
         try {
-            counts[0] = flushTelemetry();
-            counts[1] = flushSettings();
-            counts[2] = flushStatistics();
-            counts[3] = flushLocations();
+
+            counts[0] += flushQueue(telemetryQueue, this::flushTelemetry, maxBatchesPerCycle);
+            counts[1] += flushQueue(settingsQueue, this::flushSettings, maxBatchesPerCycle);
+            counts[2] += flushQueue(statisticsQueue, this::flushStatistics, maxBatchesPerCycle);
+            counts[3] += flushQueue(locationQueue, this::flushLocations, maxBatchesPerCycle);
+
         } finally {
             flushLock.unlock();
+
             long ms = Duration.between(start, Instant.now()).toMillis();
+
             log.info("Batch flush completed in {} ms — inserted: telemetry={}, settings={}, statistics={}, locations={}",
                     ms, counts[0], counts[1], counts[2], counts[3]);
         }
+    }
+    
+    private int flushQueue(Queue<?> queue, Supplier<Integer> flushMethod, int maxBatches) {
+
+        int total = 0;
+        int processed = 0;
+
+        while (!queue.isEmpty() && processed < maxBatches) {
+            total += flushMethod.get();
+            processed++;
+        }
+
+        return total;
     }
 
     // -------------------------------------------------------------------------
