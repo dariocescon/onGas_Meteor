@@ -1,7 +1,8 @@
 # Contesto del Progetto onGas_Meteor
 
 > Documento di riferimento unico per architettura, componenti, flussi, database, API e configurazione di **onGas_Meteor**.  
-> Generato da: lettura completa di `docs/` e del codice sorgente.
+> Generato da: lettura completa di `docs/` e del codice sorgente.  
+> Ultimo aggiornamento: v1.2 — revisione correttezza del codice (branch `copilot/check-code-correctness`).
 
 ---
 
@@ -21,6 +22,7 @@
 12. [Test](#12-test)
 13. [Build & Run](#13-build--run)
 14. [Riferimenti alla Documentazione](#14-riferimenti-alla-documentazione)
+15. [Note sulla Revisione del Codice](#15-note-sulla-revisione-del-codice)
 
 ---
 
@@ -1301,4 +1303,50 @@ Tutti i file di documentazione si trovano nella directory [`docs/`](../docs/) al
 
 ---
 
-*Fine documento — onGas_Meteor context v1.1*
+## 15. Note sulla Revisione del Codice
+
+Questa sezione documenta i problemi individuati e corretti durante la revisione della branch `copilot/check-code-correctness`.
+
+### Bug risolti
+
+#### 🔴 Bug #1 — NullPointerException nel blocco `finally` di `TcpConnectionHandlerReadExactly`
+
+**File:** `src/main/java/com/aton/proj/oneGasMeteor/handler/TcpConnectionHandlerReadExactly.java`
+
+**Problema (riga 109, prima della correzione):**
+```java
+if (response != null && response.getCommands().size() > 0) {
+```
+La condizione controllava che `response` non fosse `null`, ma non verificava che `response.getCommands()` non fosse `null`. Se `TelemetryResponse.getCommands()` restituisce `null` (caso lecito quando nessun comando è presente), la chiamata a `.size()` provocava una `NullPointerException` non gestita nel blocco `finally`, con conseguente perdita silenziosa dell'aggiornamento dei comandi a `SENT`.
+
+**Correzione applicata:**
+```java
+if (response != null && response.getCommands() != null && !response.getCommands().isEmpty()) {
+```
+Aggiunto controllo esplicito su `response.getCommands() != null` e sostituito `.size() > 0` con il più idiomatico `.isEmpty()`.
+
+---
+
+#### 🟡 Bug #2 — Uso di `System.out.println` in produzione in `MeteorController`
+
+**File:** `src/main/java/com/aton/proj/oneGasMeteor/controller/MeteorController.java`
+
+**Problema:** Il controller utilizzava `System.out.println` in tre punti (metodi `init()`, `status()`, `process()`). L'uso diretto di `System.out` bypassa il sistema di logging configurato (Log4j2 via SLF4J), impedendo:
+- il controllo dei livelli di log (DEBUG/INFO/WARN/ERROR);
+- la scrittura strutturata su file/appender configurati;
+- la correlazione dei log per richiesta.
+
+**Correzione applicata:** Aggiunto logger SLF4J `private static final Logger log = LoggerFactory.getLogger(MeteorController.class)` e sostituiti tutti i `System.out.println(...)` con le corrispondenti chiamate `log.info(...)`.
+
+---
+
+### Riepilogo correzioni
+
+| # | Tipo | File | Descrizione |
+|---|------|------|-------------|
+| 1 | 🔴 Bug | `handler/TcpConnectionHandlerReadExactly.java` | Aggiunto null check su `response.getCommands()` nel blocco `finally` |
+| 2 | 🟡 Qualità | `controller/MeteorController.java` | Sostituiti `System.out.println` con logger SLF4J |
+
+---
+
+*Fine documento — onGas_Meteor context v1.2*

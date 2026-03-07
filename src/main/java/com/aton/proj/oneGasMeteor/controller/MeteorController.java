@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -14,6 +16,8 @@ import jakarta.annotation.PostConstruct;
 @RestController
 public class MeteorController {
 
+	private static final Logger log = LoggerFactory.getLogger(MeteorController.class);
+
 	@Value("${server.port}")
 	private int serverPort;
 
@@ -22,11 +26,11 @@ public class MeteorController {
 
 	@PostConstruct
 	public void init() {
-		System.out.println("========================================");
-		System.out.println("🚀 MeteorController initialized");
-		System.out.println("   Application Name: " + applicationName);
-		System.out.println("   Server Port: " + serverPort);
-		System.out.println("========================================");
+		log.info("========================================");
+		log.info("MeteorController initialized");
+		log.info("   Application Name: {}", applicationName);
+		log.info("   Server Port: {}", serverPort);
+		log.info("========================================");
 	}
 
 	/**
@@ -45,7 +49,7 @@ public class MeteorController {
 		response.put("gatewaySource", gatewaySource);
 
 		// Log per vedere quale istanza risponde
-		System.out.println(" Meteor [PORT " + serverPort + "] Request received at " + LocalDateTime.now());
+		log.info(" Meteor [PORT {}] Request received at {}", serverPort, LocalDateTime.now());
 
 		return response;
 	}
@@ -61,7 +65,7 @@ public class MeteorController {
 		response.put("message", "Processing request on port " + serverPort);
 		response.put("timestamp", LocalDateTime.now());
 
-		System.out.println(" Meteor [PORT " + serverPort + "] Processing request...");
+		log.info(" Meteor [PORT {}] Processing request...", serverPort);
 
 		return response;
 	}
