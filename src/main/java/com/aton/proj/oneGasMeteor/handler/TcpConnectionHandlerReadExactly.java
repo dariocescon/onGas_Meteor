@@ -106,7 +106,7 @@ public class TcpConnectionHandlerReadExactly {
 		} finally {
 			closeSocket(socket, clientAddress);
 
-			if (response != null && response.getCommands().size() > 0) {
+			if (response != null && response.getCommands() != null && !response.getCommands().isEmpty()) {
 				telemetryService.markCommandsAsSent(response.getCommands());
 				log.info("Successfully updated {} commands. Marked as SENT", response.getCommands().size());
 			}
