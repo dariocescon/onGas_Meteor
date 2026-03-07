@@ -6,7 +6,7 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Implementazione SQL Server per TelemetryRepository
  */
 @Repository
-@ConditionalOnProperty(name = "database.type", havingValue = "sqlserver", matchIfMissing = true)
+@ConditionalOnJpaDatabase
 public class SqlServerTelemetryRepository implements TelemetryRepository {
 
 	private static final Logger log = LoggerFactory.getLogger(SqlServerTelemetryRepository.class);

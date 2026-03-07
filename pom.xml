@@ -52,6 +52,12 @@
 			<artifactId>mssql-jdbc</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- PostgreSQL Driver (per TimescaleDB) -->
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
 		<!-- MongoDB (opzionale, per switch futuro) -->
 		<!--		<dependency>-->
 		<!--			<groupId>org.springframework.boot</groupId>-->

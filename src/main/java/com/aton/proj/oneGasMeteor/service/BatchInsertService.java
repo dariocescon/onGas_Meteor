@@ -16,7 +16,7 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -32,7 +32,7 @@ import com.aton.proj.oneGasMeteor.entity.TelemetryEntity;
  * Raccoglie le entity in code concorrenti e le persiste periodicamente.
  */
 @Service
-@ConditionalOnProperty(name = "database.type", havingValue = "sqlserver", matchIfMissing = true)
+@ConditionalOnJpaDatabase
 public class BatchInsertService {
 
     private static final Logger log = LoggerFactory.getLogger(BatchInsertService.class);

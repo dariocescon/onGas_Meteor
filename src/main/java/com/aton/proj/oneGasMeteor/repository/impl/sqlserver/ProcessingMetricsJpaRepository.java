@@ -2,7 +2,7 @@ package com.aton.proj.oneGasMeteor.repository.impl.sqlserver;
 
 import java.time.LocalDateTime;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -15,7 +15,7 @@ import com.aton.proj.oneGasMeteor.entity.ProcessingMetricsEntity;
  * JPA Repository per ProcessingMetricsEntity (SQL Server)
  */
 @Repository
-@ConditionalOnProperty(name = "database.type", havingValue = "sqlserver", matchIfMissing = true)
+@ConditionalOnJpaDatabase
 public interface ProcessingMetricsJpaRepository extends JpaRepository<ProcessingMetricsEntity, Long> {
 
 	@Modifying

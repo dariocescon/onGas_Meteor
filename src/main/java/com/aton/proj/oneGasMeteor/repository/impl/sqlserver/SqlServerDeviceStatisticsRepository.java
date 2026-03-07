@@ -5,7 +5,7 @@ import com.aton.proj.oneGasMeteor.model.MessageType16Response;
 import com.aton.proj.oneGasMeteor.repository.DeviceStatisticsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +16,7 @@ import java.util.List;
  * Implementazione SQL Server per DeviceStatisticsRepository
  */
 @Repository
-@ConditionalOnProperty(name = "database.type", havingValue = "sqlserver", matchIfMissing = true)
+@ConditionalOnJpaDatabase
 public class SqlServerDeviceStatisticsRepository implements DeviceStatisticsRepository {
 
     private static final Logger log = LoggerFactory.getLogger(SqlServerDeviceStatisticsRepository.class);

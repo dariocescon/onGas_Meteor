@@ -1,7 +1,7 @@
 package com.aton.proj.oneGasMeteor.repository.impl.sqlserver;
 
 import com.aton.proj.oneGasMeteor.entity.DeviceStatisticsEntity;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -15,7 +15,7 @@ import java.util.List;
  * JPA Repository per DeviceStatisticsEntity (SQL Server)
  */
 @Repository
-@ConditionalOnProperty(name = "database.type", havingValue = "sqlserver", matchIfMissing = true)
+@ConditionalOnJpaDatabase
 public interface DeviceStatisticsJpaRepository extends JpaRepository<DeviceStatisticsEntity, Long> {
 
     List<DeviceStatisticsEntity> findByDeviceIdOrderByReceivedAtDesc(String deviceId);
