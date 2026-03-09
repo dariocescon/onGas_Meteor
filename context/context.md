@@ -353,12 +353,21 @@ String getEncoderName();
 
 #### SQL Server e TimescaleDB (`@ConditionalOnJpaDatabase`)
 - `SqlServerTelemetryRepository` — delega a `TelemetryJpaRepository`
-- `SqlServerCommandRepository` — delega a `CommandJpaRepository`
+- `SqlServerCommandRepository` — delega a `CommandJpaRepository` (`@ConditionalOnSqlCommands` — attivo anche in modo InfluxDB)
 - `SqlServerDeviceSettingsRepository` — delega a `DeviceSettingsJpaRepository`
 - `SqlServerDeviceStatisticsRepository` — delega a `DeviceStatisticsJpaRepository`
 - `SqlServerDeviceLocationRepository` — delega a `DeviceLocationJpaRepository`
 - `SqlServerProcessingMetricsRepository` — attivo solo quando `metrics.enabled=true`; delega a `ProcessingMetricsJpaRepository`
 - JPA interfaces corrispondenti estendono `JpaRepository`
+
+#### InfluxDB 2.x (`@ConditionalOnInfluxDatabase`)
+- `InfluxDBTelemetryRepository` — scrittura diretta via WriteApiBlocking, query via Flux
+- `InfluxDBDeviceSettingsRepository` — scrittura diretta via WriteApiBlocking
+- `InfluxDBDeviceStatisticsRepository` — scrittura diretta via WriteApiBlocking
+- `InfluxDBDeviceLocationRepository` — scrittura diretta via WriteApiBlocking
+- `InfluxDBProcessingMetricsRepository` — attivo solo quando `metrics.enabled=true`
+- Utility: `InfluxDBPointMapper` (Entity→Point), `FluxQueryHelper` (query Flux builder)
+- I comandi (`device_commands`) usano gli stessi repository SQL via `@ConditionalOnSqlCommands`
 
 ---
 
@@ -377,8 +386,13 @@ String getEncoderName();
 |--------|---------|
 | `SchedulerConfig` | `@EnableScheduling` per il cleanup schedulato |
 | `tcp/TcpServerProperties` | Binding `@ConfigurationProperties(prefix = "tcp.server")` con: `port` (default 8091), `timeout` (default 10000 ms), `maxConnections` (default 10000), `backlog` (default 1024) |
-| `ConditionalOnJpaDatabase` | Meta-annotazione personalizzata che attiva un bean solo quando `database.type` è `sqlserver` o `timescaledb`. Sostituisce `@ConditionalOnProperty(database.type=sqlserver, matchIfMissing=true)` per supportare entrambi i database relazionali. |
-| `JpaDatabaseCondition` | Implementazione di `org.springframework.context.annotation.Condition` usata da `@ConditionalOnJpaDatabase`. Restituisce `true` se `database.type` è `sqlserver` o `timescaledb` (default: `sqlserver`). |
+| `ConditionalOnJpaDatabase` | Meta-annotazione: attiva bean solo quando `database.type` è `sqlserver` o `timescaledb`. |
+| `JpaDatabaseCondition` | Condition usata da `@ConditionalOnJpaDatabase`. Restituisce `true` se `database.type` è `sqlserver` o `timescaledb` (default: `sqlserver`). |
+| `ConditionalOnInfluxDatabase` | Meta-annotazione: attiva bean solo quando `database.type=influxdb`. |
+| `InfluxDatabaseCondition` | Condition usata da `@ConditionalOnInfluxDatabase`. |
+| `ConditionalOnSqlCommands` | Meta-annotazione: attiva bean per command repository in tutti i modi (sqlserver, timescaledb, influxdb). |
+| `SqlCommandsCondition` | Condition usata da `@ConditionalOnSqlCommands`. |
+| `InfluxDBConfig` | Configurazione InfluxDB: crea bean `InfluxDBClient`, `WriteApiBlocking`, `InfluxDBProperties`. Attiva solo con `@ConditionalOnInfluxDatabase`. |
 
 ---
 
@@ -611,12 +625,13 @@ for (byte b : bytes) {
 
 ### Panoramica
 
-Il sistema supporta due tipi di database configurabili via `database.type`:
+Il sistema supporta tre tipi di database configurabili via `database.type`:
 
 - **SQL Server** (default, `database.type=sqlserver`) — database relazionale con schema gestito tramite script SQL; 5 tabelle principali.
 - **TimescaleDB** (`database.type=timescaledb`, profilo Spring `timescaledb`) — PostgreSQL con estensione TimescaleDB; le tabelle di serie temporali sono create come **hypertable** con partizionamento a 7 giorni. Schema definito in `db-timescaledb-schema.sql`.
+- **InfluxDB 2.x** (`database.type=influxdb`, profilo Spring `influxdb`) — architettura ibrida: InfluxDB per dati time-series (telemetria, settings, statistiche, location, metriche), SQL (configurabile SqlServer o PostgreSQL) per device_commands.
 
-Entrambi usano Spring Data JPA (Hibernate). Lo schema è gestito con `ddl-auto=validate` (Hibernate non modifica lo schema, si aspetta che esista già).
+SQL Server e TimescaleDB usano Spring Data JPA (Hibernate). Lo schema è gestito con `ddl-auto=validate` (Hibernate non modifica lo schema, si aspetta che esista già). InfluxDB usa il client nativo `influxdb-client-java` per letture/scritture e mantiene JPA attivo solo per la tabella device_commands.
 
 ### Relazioni
 
@@ -1017,12 +1032,66 @@ spring.datasource.driver-class-name=org.postgresql.Driver
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 ```
 
+### Configurazione InfluxDB 2.x (profilo Spring `influxdb`)
+
+Attivare con `--spring.profiles.active=influxdb` oppure `SPRING_PROFILES_ACTIVE=influxdb`.
+Il file `application-influxdb.properties` configura l'architettura ibrida:
+
+```properties
+database.type=influxdb
+
+# InfluxDB 2.x Connection
+influxdb.url=${INFLUXDB_URL:http://localhost:8086}
+influxdb.token=${INFLUXDB_TOKEN:my-super-secret-token}
+influxdb.org=${INFLUXDB_ORG:ongas}
+influxdb.bucket=${INFLUXDB_BUCKET:oneGasDB}
+
+# SQL per device_commands (configurabile SqlServer o PostgreSQL)
+spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=oneGasDB;encrypt=false;trustServerCertificate=true
+spring.datasource.username=${SQL_DB_USERNAME}
+spring.datasource.password=${SQL_DB_PASSWORD}
+spring.jpa.hibernate.ddl-auto=update
+```
+
+**Architettura ibrida**: Con `database.type=influxdb`, i dati time-series (telemetria, settings, statistiche, location, metriche di processing) vengono scritti su InfluxDB come measurements. I comandi (`device_commands`) restano su SQL tramite JPA.
+
+**Measurements InfluxDB**:
+
+| Measurement | Tags | Fields principali |
+|---|---|---|
+| `telemetry` | device_id, device_type, message_type | raw_message, decoded_data, imei, battery_voltage, battery_percentage, signal_strength, measurement_count, firmware_version |
+| `device_settings` | device_id, device_type | raw_message, settings_json |
+| `device_statistics` | device_id, device_type | raw_message, iccid, energy_used, min/max_temperature, message_count, rssi_total, delivery_fail_count, ecc. |
+| `device_locations` | device_id, device_type | raw_message, latitude, longitude, altitude, speed_kmh, speed_knots, number_of_satellites, ecc. |
+| `processing_metrics` | device_id, device_type, success | total_processing_time_ms, read_time_ms, decode_time_ms, db_save_time_ms, ecc. |
+
+**Componenti InfluxDB**:
+- `config/InfluxDBConfig.java` — bean InfluxDBClient, WriteApiBlocking, InfluxDBProperties
+- `config/ConditionalOnInfluxDatabase.java` — meta-annotation per bean attivi solo con `database.type=influxdb`
+- `config/ConditionalOnSqlCommands.java` — meta-annotation per bean command attivi con tutti i database type
+- `service/InfluxDBBatchInsertService.java` — batch write su InfluxDB (stessa architettura di BatchInsertService)
+- `repository/impl/influxdb/InfluxDBPointMapper.java` — mapping Entity → InfluxDB Point
+- `repository/impl/influxdb/FluxQueryHelper.java` — builder query Flux
+- `repository/impl/influxdb/InfluxDB*Repository.java` — 5 implementazioni repository
+
+**Docker (sviluppo locale)**: `docker-compose-influxdb.yml`
+```bash
+docker compose -f docker-compose-influxdb.yml up -d
+# UI: http://localhost:8086 (admin / adminpassword)
+```
+
+**Nota**: `findById()` su repository InfluxDB restituisce `Optional.empty()` — InfluxDB non ha chiavi auto-incrementali. I dati si cercano per `deviceId` + range temporale.
+
 ### Variabili d'ambiente richieste
 
 | Variabile | Tipo | Note |
 |-----------|------|------|
-| `SQL_DB_USERNAME` | Obbligatoria | Username per SQL Server |
-| `SQL_DB_PASSWORD` | Obbligatoria | Password per SQL Server |
+| `SQL_DB_USERNAME` | Obbligatoria | Username per SQL Server/PostgreSQL |
+| `SQL_DB_PASSWORD` | Obbligatoria | Password per SQL Server/PostgreSQL |
+| `INFLUXDB_URL` | Opzionale | Default http://localhost:8086 |
+| `INFLUXDB_TOKEN` | Opzionale | Default my-super-secret-token (solo dev) |
+| `INFLUXDB_ORG` | Opzionale | Default ongas |
+| `INFLUXDB_BUCKET` | Opzionale | Default oneGasDB |
 | `ONE_GAS_METEOR_SERVER_PORT` | Opzionale | Default 8081 |
 | `ONE_GAS_METEOR_TCP_SERVER_PORT` | Opzionale | Default 8091 |
 
@@ -1413,7 +1482,13 @@ Aggiunto controllo esplicito su `response.getCommands() != null` e sostituito `.
 | 4 | 🟢 Feature | `application-timescaledb.properties`, `db-timescaledb-schema.sql` | Nuovo profilo TimescaleDB con schema hypertable PostgreSQL (v1.3) |
 | 5 | 🟢 Feature | `utils/ControllerUtils` | Nuovi metodi: `bytesToHex()`, `commandsToHexString()`, `commandsToAsciiString()`, `enrichResponseWithConcatenatedCommands()`; `concatenateCommands()` ora ritorna `byte[]` (v1.3) |
 | 6 | 🟢 Feature | Test suite | Nuovi test: `MessageTypeParserTest`, `EncoderFactoryTest`, `ControllerUtilsTest`, `MessageType16ResponseTest`, `MessageType17ResponseTest` (v1.3) |
+| 7 | 🟢 Feature | InfluxDB 2.x integration | Architettura ibrida InfluxDB + SQL. 16 nuovi file, 6 file modificati. `database.type=influxdb` (v1.4) |
+| 8 | 🟢 Feature | `config/ConditionalOnInfluxDatabase`, `InfluxDBConfig` | Meta-annotazione e configurazione bean InfluxDB (v1.4) |
+| 9 | 🟢 Feature | `config/ConditionalOnSqlCommands` | Meta-annotazione per command repository attivi in tutti i modi DB (v1.4) |
+| 10 | 🟢 Feature | `service/BatchWriteService`, `InfluxDBBatchInsertService` | Interfaccia batch write + implementazione InfluxDB (v1.4) |
+| 11 | 🟢 Feature | `repository/impl/influxdb/*` | 5 repository InfluxDB + InfluxDBPointMapper + FluxQueryHelper (v1.4) |
+| 12 | 🟢 Feature | `application-influxdb.properties`, `docker-compose-influxdb.yml` | Profilo Spring InfluxDB + Docker Compose dev locale (v1.4) |
 
 ---
 
-*Fine documento — onGas_Meteor context v1.3*
+*Fine documento — onGas_Meteor context v1.4*

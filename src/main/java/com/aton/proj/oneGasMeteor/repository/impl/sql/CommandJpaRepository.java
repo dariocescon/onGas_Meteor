@@ -3,7 +3,7 @@ package com.aton.proj.oneGasMeteor.repository.impl.sql;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
+import com.aton.proj.oneGasMeteor.config.ConditionalOnSqlCommands;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,10 +13,12 @@ import org.springframework.stereotype.Repository;
 import com.aton.proj.oneGasMeteor.entity.CommandEntity;
 
 /**
- * JPA Repository per CommandEntity (SQL Server)
+ * JPA Repository per CommandEntity (SQL Server / PostgreSQL).
+ * Attivo per tutti i database.type che usano SQL per i comandi
+ * (sqlserver, timescaledb, influxdb).
  */
 @Repository
-@ConditionalOnJpaDatabase
+@ConditionalOnSqlCommands
 public interface CommandJpaRepository extends JpaRepository<CommandEntity, Long> {
     
     List<CommandEntity> findByDeviceIdAndStatusOrderByCreatedAtAsc(

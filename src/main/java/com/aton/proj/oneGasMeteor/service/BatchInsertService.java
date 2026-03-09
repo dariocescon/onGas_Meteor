@@ -33,7 +33,7 @@ import com.aton.proj.oneGasMeteor.entity.TelemetryEntity;
  */
 @Service
 @ConditionalOnJpaDatabase
-public class BatchInsertService {
+public class BatchInsertService implements BatchWriteService {
 
     private static final Logger log = LoggerFactory.getLogger(BatchInsertService.class);
 

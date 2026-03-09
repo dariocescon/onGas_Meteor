@@ -55,7 +55,7 @@ public class TelemetryService {
 	private final DeviceSettingsRepository deviceSettingsRepository;
 	private final DeviceStatisticsRepository deviceStatisticsRepository;
 	private final DeviceLocationRepository deviceLocationRepository;
-	private final BatchInsertService batchInsertService;
+	private final BatchWriteService batchWriteService;
 
 	@Value("${command.max.per.response:10}")
 	private int maxCommandsPerResponse;
@@ -66,7 +66,7 @@ public class TelemetryService {
 			DeviceSettingsRepository deviceSettingsRepository,
 			DeviceStatisticsRepository deviceStatisticsRepository,
 			DeviceLocationRepository deviceLocationRepository,
-			BatchInsertService batchInsertService) {
+			BatchWriteService batchWriteService) {
 		this.decoderFactory = decoderFactory;
 		this.encoderFactory = encoderFactory;
 		this.telemetryRepository = telemetryRepository;
@@ -76,7 +76,7 @@ public class TelemetryService {
 		this.deviceSettingsRepository = deviceSettingsRepository;
 		this.deviceStatisticsRepository = deviceStatisticsRepository;
 		this.deviceLocationRepository = deviceLocationRepository;
-		this.batchInsertService = batchInsertService;
+		this.batchWriteService = batchWriteService;
 
 		log.info("TelemetryService initialized");
 	}
@@ -129,7 +129,7 @@ public class TelemetryService {
 				// Standard telemetry - accoda per batch insert
 				TelemetryEntity entity = telemetryRepository
 						.buildEntity(deviceId, deviceType, hexData, decoded);
-				batchInsertService.enqueue(entity);
+				batchWriteService.enqueue(entity);
 				log.info("  Enqueued telemetry for batch insert: deviceId={}", deviceId);
 			}
 			case 6 -> {
@@ -139,7 +139,7 @@ public class TelemetryService {
 						deviceType);
 				DeviceSettingsEntity settingsEntity = deviceSettingsRepository
 						.buildEntity(settings, hexData);
-				batchInsertService.enqueue(settingsEntity);
+				batchWriteService.enqueue(settingsEntity);
 				log.info("  Enqueued settings for batch insert: deviceId={}, parameters={}", deviceId, settings.getSettings().size());
 			}
 			case 16 -> {
@@ -148,7 +148,7 @@ public class TelemetryService {
 				MessageType16Response stats = messageTypeParser.parseMessageType16(statsPayload, deviceId, deviceType);
 				DeviceStatisticsEntity statsEntity = deviceStatisticsRepository
 						.buildEntity(stats, hexData);
-				batchInsertService.enqueue(statsEntity);
+				batchWriteService.enqueue(statsEntity);
 				log.info("  Enqueued statistics for batch insert: deviceId={}, ICCID={}", deviceId, stats.getIccid());
 			}
 			case 17 -> {
@@ -157,7 +157,7 @@ public class TelemetryService {
 				MessageType17Response gps = messageTypeParser.parseMessageType17(gpsPayload, deviceId, deviceType);
 				DeviceLocationEntity locationEntity = deviceLocationRepository
 						.buildEntity(gps, hexData);
-				batchInsertService.enqueue(locationEntity);
+				batchWriteService.enqueue(locationEntity);
 				log.info("  Enqueued GPS for batch insert: deviceId={}, lat={}, lon={}", deviceId, gps.getLatitude(), gps.getLongitude());
 			}
 			default -> {

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,10 +14,10 @@ import com.aton.proj.oneGasMeteor.repository.ProcessingMetricsRepository;
 
 /**
  * Implementazione SQL Server per le metriche di performance.
- * Attivo solo quando metrics.enabled=true (default: true).
- * La dipendenza da ProcessingMetricsJpaRepository implicitamente richiede database.type=sqlserver.
+ * Attivo solo quando metrics.enabled=true E database.type è JPA-based (sqlserver/timescaledb).
  */
 @Repository
+@ConditionalOnJpaDatabase
 @ConditionalOnProperty(name = "metrics.enabled", havingValue = "true", matchIfMissing = true)
 public class SqlServerProcessingMetricsRepository implements ProcessingMetricsRepository {
 
