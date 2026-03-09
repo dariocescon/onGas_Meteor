@@ -220,6 +220,65 @@ Environment variables:
 - `ONE_GAS_METEOR_SERVER_PORT` — Override HTTP port (default: 8081)
 - `ONE_GAS_METEOR_TCP_SERVER_PORT` — Override TCP port (default: 8091)
 
+## Running with InfluxDB (Hybrid Mode)
+
+onGas_Meteor supports an **InfluxDB hybrid mode** where time-series data (telemetry, settings, statistics, GPS) is stored in InfluxDB and device commands remain in a relational database.
+
+### Quick Start with Docker (local development)
+
+```bash
+# 1. Start InfluxDB via Docker Compose
+docker compose -f docker-compose-influxdb.yml up -d
+
+# InfluxDB UI: http://localhost:8086
+#   Username: admin
+#   Password: adminpassword
+#   Organization: ongas
+#   Bucket: oneGasDB
+#   Token: my-super-secret-token
+```
+
+### Option A: InfluxDB + SQL Server (recommended for production)
+
+```bash
+# Set SQL Server credentials
+export SQL_DB_USERNAME=yourUser
+export SQL_DB_PASSWORD=yourPassword
+
+# Run with InfluxDB profile
+./mvnw spring-boot:run --spring.profiles.active=influxdb
+```
+
+### Option B: InfluxDB + H2 in-memory (easiest for local testing)
+
+No SQL Server required. Enable H2 by editing `src/main/resources/application-influxdb.properties`:
+comment out Option A and uncomment Option C (H2 in-memory), then run:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=influxdb
+```
+
+The H2 console is available at `http://localhost:8081/h2-console` (JDBC URL: `jdbc:h2:mem:oneGasDB`).
+
+### Environment Variables for InfluxDB
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INFLUXDB_URL` | `http://localhost:8086` | InfluxDB server URL |
+| `INFLUXDB_TOKEN` | `my-super-secret-token` | InfluxDB API token |
+| `INFLUXDB_ORG` | `ongas` | InfluxDB organization |
+| `INFLUXDB_BUCKET` | `oneGasDB` | InfluxDB bucket |
+
+### InfluxDB Measurements
+
+| Measurement | Tags | Fields |
+|-------------|------|--------|
+| `telemetry` | device_id, device_type, message_type | raw_message, decoded_data, imei, battery_voltage, battery_percentage, signal_strength, measurement_count |
+| `device_settings` | device_id, device_type | raw_message, settings_json |
+| `device_statistics` | device_id, device_type | iccid, energy_used, min/max_temperature, message_count, rssi_total |
+| `device_locations` | device_id, device_type | latitude, longitude, altitude, speed_kmh, number_of_satellites |
+| `processing_metrics` | device_id, device_type, success | total_processing_time_ms, decode_time_ms, db_save_time_ms |
+
 ## Extensibility
 
 To add support for a new device family:
