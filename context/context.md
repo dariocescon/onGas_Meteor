@@ -233,8 +233,8 @@ Dispositivo IoT riceve risposta
 
 #### `TelemetryService`
 - **Tipo**: `@Service`
-- **Funzione**: Orchestratore principale. Riceve `TelemetryMessage`, seleziona il decoder, decodifica, salva nel DB in base al messageType, recupera comandi pendenti, codifica con l'encoder, ritorna `TelemetryResponse`. Supporta overload `processTelemetry(message, context)` per raccogliere metriche di performance tramite `ProcessingContext`. Le entity di telemetria, settings, statistics e location vengono accodate via `BatchInsertService` per un insert batch asincrono.
-- **Iniezione**: `DecoderFactory`, `EncoderFactory`, `TelemetryRepository`, `CommandRepository`, `MessageTypeParser`, `ObjectMapper`, `DeviceSettingsRepository`, `DeviceStatisticsRepository`, `DeviceLocationRepository`, `BatchInsertService`.
+- **Funzione**: Orchestratore principale. Riceve `TelemetryMessage`, seleziona il decoder, decodifica, salva nel DB in base al messageType, recupera comandi pendenti, codifica con l'encoder, ritorna `TelemetryResponse`. Supporta overload `processTelemetry(message, context)` per raccogliere metriche di performance tramite `ProcessingContext`. Le entity di telemetria, settings, statistics e location vengono accodate via `BatchWriteService` per un insert batch asincrono.
+- **Iniezione**: `DecoderFactory`, `EncoderFactory`, `TelemetryRepository`, `CommandRepository`, `MessageTypeParser`, `ObjectMapper`, `DeviceSettingsRepository`, `DeviceStatisticsRepository`, `DeviceLocationRepository`, `BatchWriteService`.
 - **Property**: `command.max.per.response=10`
 
 #### `CommandService`
@@ -242,10 +242,19 @@ Dispositivo IoT riceve risposta
 - **Funzione**: Valida e crea comandi. Controlla `deviceType` (deve essere nei tipi abilitati), `commandType` (deve essere uno dei 17 validi) e parametri obbligatori per tipo.
 - **Mappa**: `REQUIRED_PARAMS` definisce i parametri obbligatori per ogni tipo di comando.
 
+#### `BatchWriteService`
+- **Tipo**: `interface`
+- **Funzione**: Interfaccia per il batch write di entity time-series. Definisce i metodi `enqueue(TelemetryEntity)`, `enqueue(DeviceSettingsEntity)`, `enqueue(DeviceStatisticsEntity)`, `enqueue(DeviceLocationEntity)`. Implementata da `BatchInsertService` (SQL/JPA) e `InfluxDBBatchInsertService` (InfluxDB).
+
 #### `BatchInsertService`
 - **Tipo**: `@Service`, `@ConditionalOnJpaDatabase` (attivo per `database.type=sqlserver` o `timescaledb`; se la property è assente, default = `sqlserver`)
-- **Funzione**: Raccoglie le entity (`TelemetryEntity`, `DeviceSettingsEntity`, `DeviceStatisticsEntity`, `DeviceLocationEntity`) in code concorrenti (`ConcurrentLinkedQueue`) e le persiste tramite `JdbcTemplate` batch INSERT ogni `batch.insert.interval-ms=2000` ms. Utilizza un `ReentrantLock` per garantire che al massimo un ciclo di flush sia in esecuzione contemporaneamente.
+- **Funzione**: Implementazione di `BatchWriteService`. Raccoglie le entity (`TelemetryEntity`, `DeviceSettingsEntity`, `DeviceStatisticsEntity`, `DeviceLocationEntity`) in code concorrenti (`ConcurrentLinkedQueue`) e le persiste tramite `JdbcTemplate` batch INSERT ogni `batch.insert.interval-ms=2000` ms. Utilizza un `ReentrantLock` per garantire che al massimo un ciclo di flush sia in esecuzione contemporaneamente.
 - **Property**: `batch.insert.size=500` (dimensione batch), `batch.insert.interval-ms=2000` (intervallo flush in ms)
+
+#### `InfluxDBBatchInsertService`
+- **Tipo**: `@Service`, `@ConditionalOnInfluxDatabase` (attivo per `database.type=influxdb`)
+- **Funzione**: Implementazione di `BatchWriteService` per InfluxDB. Stessa architettura di `BatchInsertService` (code concorrenti + flush periodico), ma usa `WriteApiBlocking.writePoints()` al posto di `JdbcTemplate.batchUpdate()`. Converte le entity in `Point` tramite `InfluxDBPointMapper`.
+- **Property**: `batch.insert.size=100` (dimensione batch), `batch.insert.interval-ms=2000` (intervallo flush in ms)
 
 #### `DataCleanupService`
 - **Tipo**: `@Service`, `@ConditionalOnProperty(cleanup.enabled=true)`
