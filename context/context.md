@@ -36,7 +36,7 @@
 | **ArtifactId**  | `oneGasMeteor`                              |
 | **Framework**   | Spring Boot **3.5.10**                      |
 | **Linguaggio**  | Java **21** (con Virtual Threads)           |
-| **Database**    | SQL Server (default) — TimescaleDB (profilo `timescaledb`) — MongoDB (opzionale) |
+| **Database**    | SQL Server (default) — TimescaleDB (profilo `timescaledb`) |
 | **Build tool**  | Maven (wrapper incluso)                     |
 | **Porta HTTP**  | `8081` (configurabile)                      |
 | **Porta TCP**   | `8091` (configurabile)                      |
@@ -84,20 +84,16 @@ Il server:
 │  ┌─ SqlServer ─────┐  │  ┌─ SqlServer ──┐  │  DeviceStatistics*│
 │  │ JpaRepository   │  │  │ JpaRepository│  │  DeviceLocation*  │
 │  └─────────────────┘  │  └──────────────┘  │                   │
-│  ┌─ MongoDB (opt) ─┐  │  ┌─ MongoDB ────┐  │                   │
-│  └─────────────────┘  │  └──────────────┘  │                   │
 └──────────┬─────────────────────────────────────────────────────-┘
            │
 ┌──────────▼──────────────────────────────────────────────────────┐
 │                        DATABASE LAYER                           │
-│  SQL Server (oneGasDB)              MongoDB (opzionale)         │
-│  - TELEMETRY_DATA                   - TelemetryDocument         │
-│  - DEVICE_COMMANDS                  - CommandDocument           │
+│  SQL Server (oneGasDB)       TimescaleDB (profilo timescaledb)  │
+│  - TELEMETRY_DATA            - Stesse tabelle come hypertable   │
+│  - DEVICE_COMMANDS                                              │
 │  - DEVICE_SETTINGS                                              │
 │  - DEVICE_STATISTICS                                            │
 │  - DEVICE_LOCATIONS                                             │
-│  TimescaleDB (profilo timescaledb)                              │
-│  - Stesse tabelle in hypertable PostgreSQL                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -109,7 +105,7 @@ Il server:
 | **Service** | Orchestrazione del flusso: decodifica → persistenza → encoding comandi |
 | **Decoder** | Trasforma il payload binario in oggetti Java (`DecodedMessage`) |
 | **Encoder** | Trasforma i `DeviceCommand` in stringhe ASCII/HEX da inviare al device |
-| **Repository** | Astrazione del database; implementazioni per SQL Server e MongoDB |
+| **Repository** | Astrazione del database; implementazioni per SQL Server e TimescaleDB |
 | **Database** | Persistenza dati di telemetria, comandi, settings, statistiche e GPS |
 
 ---
@@ -342,8 +338,6 @@ String getEncoderName();
 | `DeviceStatisticsEntity` | `DEVICE_STATISTICS` |
 | `DeviceLocationEntity` | `DEVICE_LOCATIONS` |
 | `ProcessingMetricsEntity` | `PROCESSING_METRICS` — metriche di performance per ogni elaborazione TCP |
-| `mongodb/TelemetryDocument` | MongoDB (commentato, uso futuro) |
-| `mongodb/CommandDocument` | MongoDB (commentato, uso futuro) |
 
 ---
 
@@ -365,10 +359,6 @@ String getEncoderName();
 - `SqlServerDeviceLocationRepository` — delega a `DeviceLocationJpaRepository`
 - `SqlServerProcessingMetricsRepository` — attivo solo quando `metrics.enabled=true`; delega a `ProcessingMetricsJpaRepository`
 - JPA interfaces corrispondenti estendono `JpaRepository`
-
-#### MongoDB (opzionale)
-- `MongoTelemetryRepository` — delega a `TelemetryMongoRepository`
-- `MongoCommandRepository` — delega a `CommandMongoRepository`
 
 ---
 
@@ -621,13 +611,12 @@ for (byte b : bytes) {
 
 ### Panoramica
 
-Il sistema supporta tre tipi di database configurabili via `database.type`:
+Il sistema supporta due tipi di database configurabili via `database.type`:
 
 - **SQL Server** (default, `database.type=sqlserver`) — database relazionale con schema gestito tramite script SQL; 5 tabelle principali.
 - **TimescaleDB** (`database.type=timescaledb`, profilo Spring `timescaledb`) — PostgreSQL con estensione TimescaleDB; le tabelle di serie temporali sono create come **hypertable** con partizionamento a 7 giorni. Schema definito in `db-timescaledb-schema.sql`.
-- **MongoDB** (opzionale, `database.type=mongodb`) — backend NoSQL, implementazioni presenti ma commentate.
 
-Sia SQL Server sia TimescaleDB usano Spring Data JPA (Hibernate). Lo schema è gestito con `ddl-auto=validate` (Hibernate non modifica lo schema, si aspetta che esista già).
+Entrambi usano Spring Data JPA (Hibernate). Lo schema è gestito con `ddl-auto=validate` (Hibernate non modifica lo schema, si aspetta che esista già).
 
 ### Relazioni
 
@@ -986,7 +975,7 @@ Stato del servizio cleanup.
 | `tcp.server.max-connections` | `10000` | — | Numero massimo di connessioni TCP concorrenti (Semaphore permits) |
 | `tcp.server.backlog` | `1024` | — | Dimensione coda connessioni in attesa del `ServerSocket` |
 | `device.enabled.types` | `TEK822V1,TEK822V2,TEK586` | — | Device types abilitati (comma-separated) |
-| `database.type` | `sqlserver` | — | Tipo DB: `sqlserver`, `timescaledb` o `mongodb` |
+| `database.type` | `sqlserver` | — | Tipo DB: `sqlserver` o `timescaledb` |
 | `spring.datasource.url` | `jdbc:sqlserver://localhost:1433;databaseName=oneGasDB;encrypt=false;trustServerCertificate=true` | — | URL SQL Server |
 | `spring.datasource.username` | *(obbligatorio)* | `SQL_DB_USERNAME` | Username SQL Server |
 | `spring.datasource.password` | *(obbligatorio)* | `SQL_DB_PASSWORD` | Password SQL Server |
@@ -1026,17 +1015,6 @@ spring.datasource.username=${SQL_DB_USERNAME}
 spring.datasource.password=${SQL_DB_PASSWORD}
 spring.datasource.driver-class-name=org.postgresql.Driver
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-```
-
-### Configurazione MongoDB (opzionale — commentata nel file)
-
-```properties
-# database.type=mongodb
-# spring.data.mongodb.uri=mongodb://admin:password@localhost:27017/oneGasDB?authSource=admin
-# spring.data.mongodb.database=oneGasDB
-# spring.autoconfigure.exclude=\
-#   org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,\
-#   org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
 ```
 
 ### Variabili d'ambiente richieste
