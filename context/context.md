@@ -999,7 +999,7 @@ Stato del servizio cleanup.
 | `tcp.server.max-connections` | `10000` | — | Numero massimo di connessioni TCP concorrenti (Semaphore permits) |
 | `tcp.server.backlog` | `1024` | — | Dimensione coda connessioni in attesa del `ServerSocket` |
 | `device.enabled.types` | `TEK822V1,TEK822V2,TEK586` | — | Device types abilitati (comma-separated) |
-| `database.type` | `sqlserver` | — | Tipo DB: `sqlserver` o `timescaledb` |
+| `database.type` | `sqlserver` | — | Tipo DB: `sqlserver`, `timescaledb` o `influxdb` |
 | `spring.datasource.url` | `jdbc:sqlserver://localhost:1433;databaseName=oneGasDB;encrypt=false;trustServerCertificate=true` | — | URL SQL Server |
 | `spring.datasource.username` | *(obbligatorio)* | `SQL_DB_USERNAME` | Username SQL Server |
 | `spring.datasource.password` | *(obbligatorio)* | `SQL_DB_PASSWORD` | Password SQL Server |
