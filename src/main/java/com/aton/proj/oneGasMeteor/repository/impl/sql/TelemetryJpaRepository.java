@@ -1,4 +1,4 @@
-package com.aton.proj.oneGasMeteor.repository.impl.sqlserver;
+package com.aton.proj.oneGasMeteor.repository.impl.sql;
 
 import java.time.LocalDateTime;
 import java.util.List;

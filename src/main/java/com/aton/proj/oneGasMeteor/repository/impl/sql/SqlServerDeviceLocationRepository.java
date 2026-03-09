@@ -1,4 +1,4 @@
-package com.aton.proj.oneGasMeteor.repository.impl.sqlserver;
+package com.aton.proj.oneGasMeteor.repository.impl.sql;
 
 import com.aton.proj.oneGasMeteor.entity.DeviceLocationEntity;
 import com.aton.proj.oneGasMeteor.model.MessageType17Response;

@@ -1,6 +1,6 @@
-package com.aton.proj.oneGasMeteor.repository.impl.sqlserver;
+package com.aton.proj.oneGasMeteor.repository.impl.sql;
 
-import com.aton.proj.oneGasMeteor.entity.DeviceLocationEntity;
+import com.aton.proj.oneGasMeteor.entity.DeviceSettingsEntity;
 import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -12,15 +12,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * JPA Repository per DeviceLocationEntity (SQL Server)
+ * JPA Repository per DeviceSettingsEntity (SQL Server)
  */
 @Repository
 @ConditionalOnJpaDatabase
-public interface DeviceLocationJpaRepository extends JpaRepository<DeviceLocationEntity, Long> {
+public interface DeviceSettingsJpaRepository extends JpaRepository<DeviceSettingsEntity, Long> {
 
-    List<DeviceLocationEntity> findByDeviceIdOrderByReceivedAtDesc(String deviceId);
+    List<DeviceSettingsEntity> findByDeviceIdOrderByReceivedAtDesc(String deviceId);
 
     @Modifying
-    @Query("DELETE FROM DeviceLocationEntity e WHERE e.receivedAt < :threshold")
+    @Query("DELETE FROM DeviceSettingsEntity e WHERE e.receivedAt < :threshold")
     int deleteByReceivedAtBefore(@Param("threshold") LocalDateTime threshold);
 }

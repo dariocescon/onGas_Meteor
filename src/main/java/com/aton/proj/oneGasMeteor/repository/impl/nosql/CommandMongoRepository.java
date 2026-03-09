@@ -23,3 +23,4 @@
 //    @Query(value = "{'createdAt': {$lt: ?0}, 'status': {$in: ['DELIVERED', 'FAILED']}}", delete = true)
 //    long deleteOldCompleted(LocalDateTime threshold);
 //}
+
