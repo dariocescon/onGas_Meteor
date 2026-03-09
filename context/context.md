@@ -2,7 +2,7 @@
 
 > Documento di riferimento unico per architettura, componenti, flussi, database, API e configurazione di **onGas_Meteor**.  
 > Generato da: lettura completa di `docs/` e del codice sorgente.  
-> Ultimo aggiornamento: v1.2 — revisione correttezza del codice (branch `copilot/check-code-correctness`).
+> Ultimo aggiornamento: v1.3 — aggiornamento completo codice sorgente: supporto TimescaleDB, nuove classi config, metodi ControllerUtils aggiornati, nuovi test.
 
 ---
 
@@ -36,7 +36,7 @@
 | **ArtifactId**  | `oneGasMeteor`                              |
 | **Framework**   | Spring Boot **3.5.10**                      |
 | **Linguaggio**  | Java **21** (con Virtual Threads)           |
-| **Database**    | SQL Server (attivo) — MongoDB (opzionale)   |
+| **Database**    | SQL Server (default) — TimescaleDB (profilo `timescaledb`) |
 | **Build tool**  | Maven (wrapper incluso)                     |
 | **Porta HTTP**  | `8081` (configurabile)                      |
 | **Porta TCP**   | `8091` (configurabile)                      |
@@ -84,15 +84,13 @@ Il server:
 │  ┌─ SqlServer ─────┐  │  ┌─ SqlServer ──┐  │  DeviceStatistics*│
 │  │ JpaRepository   │  │  │ JpaRepository│  │  DeviceLocation*  │
 │  └─────────────────┘  │  └──────────────┘  │                   │
-│  ┌─ MongoDB (opt) ─┐  │  ┌─ MongoDB ────┐  │                   │
-│  └─────────────────┘  │  └──────────────┘  │                   │
 └──────────┬─────────────────────────────────────────────────────-┘
            │
 ┌──────────▼──────────────────────────────────────────────────────┐
 │                        DATABASE LAYER                           │
-│  SQL Server (oneGasDB)              MongoDB (opzionale)         │
-│  - TELEMETRY_DATA                   - TelemetryDocument         │
-│  - DEVICE_COMMANDS                  - CommandDocument           │
+│  SQL Server (oneGasDB)       TimescaleDB (profilo timescaledb)  │
+│  - TELEMETRY_DATA            - Stesse tabelle come hypertable   │
+│  - DEVICE_COMMANDS                                              │
 │  - DEVICE_SETTINGS                                              │
 │  - DEVICE_STATISTICS                                            │
 │  - DEVICE_LOCATIONS                                             │
@@ -107,7 +105,7 @@ Il server:
 | **Service** | Orchestrazione del flusso: decodifica → persistenza → encoding comandi |
 | **Decoder** | Trasforma il payload binario in oggetti Java (`DecodedMessage`) |
 | **Encoder** | Trasforma i `DeviceCommand` in stringhe ASCII/HEX da inviare al device |
-| **Repository** | Astrazione del database; implementazioni per SQL Server e MongoDB |
+| **Repository** | Astrazione del database; implementazioni per SQL Server e TimescaleDB |
 | **Database** | Persistenza dati di telemetria, comandi, settings, statistiche e GPS |
 
 ---
@@ -245,8 +243,8 @@ Dispositivo IoT riceve risposta
 - **Mappa**: `REQUIRED_PARAMS` definisce i parametri obbligatori per ogni tipo di comando.
 
 #### `BatchInsertService`
-- **Tipo**: `@Service`, `@ConditionalOnProperty(database.type=sqlserver, matchIfMissing=true)`
-- **Funzione**: Raccoglie le entity (`TelemetryEntity`, `DeviceSettingsEntity`, `DeviceStatisticsEntity`, `DeviceLocationEntity`) in code concorrenti (`ConcurrentLinkedQueue`) e le persiste su SQL Server tramite `JdbcTemplate` batch INSERT ogni `batch.insert.interval-ms=2000` ms. Utilizza un `ReentrantLock` per garantire che al massimo un ciclo di flush sia in esecuzione contemporaneamente.
+- **Tipo**: `@Service`, `@ConditionalOnJpaDatabase` (attivo per `database.type=sqlserver` o `timescaledb`; se la property è assente, default = `sqlserver`)
+- **Funzione**: Raccoglie le entity (`TelemetryEntity`, `DeviceSettingsEntity`, `DeviceStatisticsEntity`, `DeviceLocationEntity`) in code concorrenti (`ConcurrentLinkedQueue`) e le persiste tramite `JdbcTemplate` batch INSERT ogni `batch.insert.interval-ms=2000` ms. Utilizza un `ReentrantLock` per garantire che al massimo un ciclo di flush sia in esecuzione contemporaneamente.
 - **Property**: `batch.insert.size=500` (dimensione batch), `batch.insert.interval-ms=2000` (intervallo flush in ms)
 
 #### `DataCleanupService`
@@ -340,8 +338,6 @@ String getEncoderName();
 | `DeviceStatisticsEntity` | `DEVICE_STATISTICS` |
 | `DeviceLocationEntity` | `DEVICE_LOCATIONS` |
 | `ProcessingMetricsEntity` | `PROCESSING_METRICS` — metriche di performance per ogni elaborazione TCP |
-| `mongodb/TelemetryDocument` | MongoDB (commentato, uso futuro) |
-| `mongodb/CommandDocument` | MongoDB (commentato, uso futuro) |
 
 ---
 
@@ -355,7 +351,7 @@ String getEncoderName();
 - `DeviceLocationRepository`
 - `ProcessingMetricsRepository` — include `save(entity)` e `deleteOlderThan(threshold)`
 
-#### SQL Server (`@ConditionalOnProperty(database.type=sqlserver)`)
+#### SQL Server e TimescaleDB (`@ConditionalOnJpaDatabase`)
 - `SqlServerTelemetryRepository` — delega a `TelemetryJpaRepository`
 - `SqlServerCommandRepository` — delega a `CommandJpaRepository`
 - `SqlServerDeviceSettingsRepository` — delega a `DeviceSettingsJpaRepository`
@@ -363,10 +359,6 @@ String getEncoderName();
 - `SqlServerDeviceLocationRepository` — delega a `DeviceLocationJpaRepository`
 - `SqlServerProcessingMetricsRepository` — attivo solo quando `metrics.enabled=true`; delega a `ProcessingMetricsJpaRepository`
 - JPA interfaces corrispondenti estendono `JpaRepository`
-
-#### MongoDB (opzionale)
-- `MongoTelemetryRepository` — delega a `TelemetryMongoRepository`
-- `MongoCommandRepository` — delega a `CommandMongoRepository`
 
 ---
 
@@ -385,15 +377,21 @@ String getEncoderName();
 |--------|---------|
 | `SchedulerConfig` | `@EnableScheduling` per il cleanup schedulato |
 | `tcp/TcpServerProperties` | Binding `@ConfigurationProperties(prefix = "tcp.server")` con: `port` (default 8091), `timeout` (default 10000 ms), `maxConnections` (default 10000), `backlog` (default 1024) |
+| `ConditionalOnJpaDatabase` | Meta-annotazione personalizzata che attiva un bean solo quando `database.type` è `sqlserver` o `timescaledb`. Sostituisce `@ConditionalOnProperty(database.type=sqlserver, matchIfMissing=true)` per supportare entrambi i database relazionali. |
+| `JpaDatabaseCondition` | Implementazione di `org.springframework.context.annotation.Condition` usata da `@ConditionalOnJpaDatabase`. Restituisce `true` se `database.type` è `sqlserver` o `timescaledb` (default: `sqlserver`). |
 
 ---
 
 ### `utils/`
 
 #### `ControllerUtils`
-- `concatenateCommands(List<String> hexCommands)` → stringa comandi separati da virgola
+- `concatenateCommands(List<EncodedCommand> commands)` → `byte[]` — concatena i comandi in un byte array ASCII (password solo sul primo comando, rimossa per i successivi) nel formato `TEK822,S0=80,S1=01,...`
 - `hexToAscii(String hex)` → converte HEX in ASCII
 - `hexStringToByteArray(String hex)` → converte HEX in `byte[]`
+- `bytesToHex(byte[] bytes)` → converte `byte[]` in stringa HEX uppercase
+- `commandsToHexString(List<EncodedCommand>)` → converte comandi concatenati in stringa HEX
+- `commandsToAsciiString(List<EncodedCommand>)` → converte comandi concatenati in stringa ASCII leggibile
+- `enrichResponseWithConcatenatedCommands(TelemetryResponse)` → arricchisce una `TelemetryResponse` con il campo `concatenatedCommandsAscii`
 
 ---
 
@@ -613,7 +611,12 @@ for (byte b : bytes) {
 
 ### Panoramica
 
-Il database SQL Server (`oneGasDB`) contiene 5 tabelle principali. Lo schema è gestito con `ddl-auto=validate` (Hibernate non modifica lo schema, si aspetta che esista già).
+Il sistema supporta due tipi di database configurabili via `database.type`:
+
+- **SQL Server** (default, `database.type=sqlserver`) — database relazionale con schema gestito tramite script SQL; 5 tabelle principali.
+- **TimescaleDB** (`database.type=timescaledb`, profilo Spring `timescaledb`) — PostgreSQL con estensione TimescaleDB; le tabelle di serie temporali sono create come **hypertable** con partizionamento a 7 giorni. Schema definito in `db-timescaledb-schema.sql`.
+
+Entrambi usano Spring Data JPA (Hibernate). Lo schema è gestito con `ddl-auto=validate` (Hibernate non modifica lo schema, si aspetta che esista già).
 
 ### Relazioni
 
@@ -777,6 +780,29 @@ PENDING → EXPIRED
 **Indici**: `idx_pm_device_id`, `idx_pm_received_at`, `idx_pm_message_type`, `idx_pm_success`
 
 > **Nota**: La tabella `PROCESSING_METRICS` viene scritta solo se `metrics.enabled=true` (default). Il cleanup automatico rispetta `cleanup.metrics.retention.days=90`.
+
+### TimescaleDB — Hypertable e Script di Schema
+
+Con `database.type=timescaledb` e il profilo Spring `timescaledb`, lo schema viene creato eseguendo `db-timescaledb-schema.sql`.
+
+Le tabelle `telemetry_data`, `device_settings`, `device_statistics`, `device_locations` e `processing_metrics` vengono create come **hypertable** TimescaleDB (partizionamento automatico per `received_at` con chunk di 7 giorni). La tabella `device_commands` rimane una tabella PostgreSQL normale (non hypertable).
+
+Le hypertable **non hanno un PRIMARY KEY standard** sulla sola colonna `id`: poiché TimescaleDB richiede che la colonna di partizionamento faccia parte di ogni vincolo UNIQUE/PRIMARY KEY, si usa un indice univoco composito `(id, received_at)`.
+
+> **⚠️ Importante**: A differenza di SQL Server dove le entity JPA usano `id` come chiave primaria standard, con TimescaleDB le query e le operazioni JPA che fanno `findById(id)` continuano a funzionare correttamente tramite l'indice composito, ma eventuali vincoli di integrità referenziale fra tabelle non sono supportati allo stesso modo.
+
+Lo script include sezioni commentate per abilitare facoltativamente:
+- **Retention policy native** (es. `add_retention_policy('telemetry_data', INTERVAL '30 days')`) come alternativa a `DataCleanupService`
+- **Compression policy** (es. chunk più vecchi di 7 giorni compressi con `timescaledb.compress`)
+
+### Script di migrazione SQL Server
+
+| File | Contenuto |
+|------|-----------|
+| `db-migration-message-types-6-16-17.sql` | Aggiunge le tabelle `DEVICE_SETTINGS`, `DEVICE_STATISTICS`, `DEVICE_LOCATIONS` a un database SQL Server esistente |
+| `db-migration-processing-metrics.sql` | Aggiunge la tabella `PROCESSING_METRICS` a un database SQL Server esistente |
+
+---
 
 ## 8. API REST
 
@@ -949,7 +975,7 @@ Stato del servizio cleanup.
 | `tcp.server.max-connections` | `10000` | — | Numero massimo di connessioni TCP concorrenti (Semaphore permits) |
 | `tcp.server.backlog` | `1024` | — | Dimensione coda connessioni in attesa del `ServerSocket` |
 | `device.enabled.types` | `TEK822V1,TEK822V2,TEK586` | — | Device types abilitati (comma-separated) |
-| `database.type` | `sqlserver` | — | Tipo DB: `sqlserver` o `mongodb` |
+| `database.type` | `sqlserver` | — | Tipo DB: `sqlserver` o `timescaledb` |
 | `spring.datasource.url` | `jdbc:sqlserver://localhost:1433;databaseName=oneGasDB;encrypt=false;trustServerCertificate=true` | — | URL SQL Server |
 | `spring.datasource.username` | *(obbligatorio)* | `SQL_DB_USERNAME` | Username SQL Server |
 | `spring.datasource.password` | *(obbligatorio)* | `SQL_DB_PASSWORD` | Password SQL Server |
@@ -977,15 +1003,18 @@ Stato del servizio cleanup.
 | `logging.level.org.springframework.integration.ip` | `TRACE` | — | Log level Spring Integration IP (TCP) |
 | `logging.config` | `classpath:log4j2.properties` | — | Config Log4j2 |
 
-### Configurazione MongoDB (opzionale — commentata nel file)
+### Configurazione TimescaleDB (profilo Spring `timescaledb`)
+
+Attivare con `--spring.profiles.active=timescaledb` oppure `SPRING_PROFILES_ACTIVE=timescaledb`.  
+Il file `application-timescaledb.properties` sovrascrive le proprietà del datasource:
 
 ```properties
-# database.type=mongodb
-# spring.data.mongodb.uri=mongodb://admin:password@localhost:27017/oneGasDB?authSource=admin
-# spring.data.mongodb.database=oneGasDB
-# spring.autoconfigure.exclude=\
-#   org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,\
-#   org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+database.type=timescaledb
+spring.datasource.url=jdbc:postgresql://localhost:5432/oneGasDB
+spring.datasource.username=${SQL_DB_USERNAME}
+spring.datasource.password=${SQL_DB_PASSWORD}
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 ```
 
 ### Variabili d'ambiente richieste
@@ -1163,6 +1192,15 @@ La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 - Test calcolo logger speed per i diversi msgType (4, 8, 9)
 - Test filtraggio misurazioni void (tutti 4 byte a zero)
 
+#### `decoder/MessageTypeParserTest`
+- Test parsing **msgType 6** (settings): decodifica coppie chiave=valore da payload HEX
+- Test parsing **msgType 16** (ICCID + statistiche): decodifica dati modem
+- Test parsing **msgType 17** (GPS): decodifica coordinate NMEA, altitudine, velocità, ecc.
+
+#### `encoder/EncoderFactoryTest`
+- Verifica che `EncoderFactory` selezioni `Tek822Encoder` per i 14 device type TEK
+- Testa il fallback a `NoOpEncoder` per device type sconosciuti o null/vuoti
+
 #### `encoder/impl/Tek822EncoderTest`
 - Test `canEncode()` per tutti i 14 device types supportati
 - Test encoding dei singoli command types (SET_INTERVAL, REBOOT, REQUEST_STATUS, ecc.)
@@ -1176,6 +1214,12 @@ La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 - Test validazione **parametri obbligatori** per ogni command type
 - Test rifiuto di parametri mancanti
 
+#### `utils/ControllerUtilsTest`
+- Test `hexToAscii()` con input validi, vuoti e stringa multi-byte
+- Test `hexStringToByteArray()` con input validi e casi limite
+- Test `bytesToHex()` con array di byte
+- Test `concatenateCommands()`: un comando, più comandi (password solo sul primo), lista vuota/null
+
 #### `OneGasMeteorApplicationTests`
 - Test di avvio del contesto Spring (smoke test)
 
@@ -1188,6 +1232,17 @@ La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 - Test `toEntity()` — conversione a `ProcessingMetricsEntity` con verifica di tutti i campi
 - Test gestione valori batteria non validi (no eccezione, campo null)
 - Test priorità CSQ su RSSI per `signalStrength`
+
+#### `model/MessageType16ResponseTest`
+- Test inizializzazione campi di `MessageType16Response`
+- Test `calculateDerivedFields()`: calcolo di `averageSendTime`, `averageRssi`, `deliverySuccessRate`
+- Test gestione divisione per zero (messageCount o rssiValidCount = 0)
+
+#### `model/MessageType17ResponseTest`
+- Test conversione coordinate GPS dal formato NMEA (`ddmm.mmmm`) ai gradi decimali
+- Test `setLatitudeRaw()`/`setLongitudeRaw()` con auto-conversione
+- Test gestione coordinate non valide (GPS fix non disponibile)
+- Test generazione `getGoogleMapsLink()`
 
 ### Eseguire i test
 
@@ -1301,6 +1356,14 @@ Tutti i file di documentazione si trovano nella directory [`docs/`](../docs/) al
 | [`docs/9-5988-07 TEK 822 Logger NB-IoT_CAT-M1 User Manual.pdf`](../docs/9-5988-07%20TEK%20822%20Logger%20NB-IoT_CAT-M1%20User%20Manual.pdf) | Manuale utente Tekelek TEK822 NB-IoT/CAT-M1. Contiene: struttura pacchetto binario (sezione 2.2), registri di configurazione S0..S19 (sezione 3.20), comandi R1..R7 (sezione 3.21), protocollo di comunicazione |
 | [`docs/CF-5018-20 cellular configuration and command v1.21.xlsm`](../docs/CF-5018-20%20cellular%20configuration%20and%20command%20v1.21.xlsm) | Excel fornitore con configurazione cellulare e comandi. Sheet "822 CC" con valori di configurazione (es. S2=7F2000), Sheet "Request Commands" con R1=10 (Reset RTC), R1=20 (Buffer Data) |
 
+### Script SQL (in `src/main/resources/`)
+
+| File | Contenuto |
+|------|-----------|
+| [`src/main/resources/db-timescaledb-schema.sql`](../src/main/resources/db-timescaledb-schema.sql) | Schema completo TimescaleDB: crea le 5 tabelle come hypertable con partizionamento su `received_at` (chunk 7 giorni). Include sezioni commentate per retention e compression policy native. |
+| [`src/main/resources/db-migration-message-types-6-16-17.sql`](../src/main/resources/db-migration-message-types-6-16-17.sql) | Script di migrazione SQL Server: aggiunge le tabelle `DEVICE_SETTINGS`, `DEVICE_STATISTICS`, `DEVICE_LOCATIONS` a un database SQL Server esistente. |
+| [`src/main/resources/db-migration-processing-metrics.sql`](../src/main/resources/db-migration-processing-metrics.sql) | Script di migrazione SQL Server: aggiunge la tabella `PROCESSING_METRICS` a un database SQL Server esistente. |
+
 ---
 
 ## 15. Note sulla Revisione del Codice
@@ -1340,13 +1403,17 @@ Aggiunto controllo esplicito su `response.getCommands() != null` e sostituito `.
 
 ---
 
-### Riepilogo correzioni
+### Riepilogo correzioni e aggiunte (v1.1 → v1.3)
 
-| # | Tipo | File | Descrizione |
+| # | Tipo | File/Area | Descrizione |
 |---|------|------|-------------|
-| 1 | 🔴 Bug | `handler/TcpConnectionHandlerReadExactly.java` | Aggiunto null check su `response.getCommands()` nel blocco `finally` |
-| 2 | 🟡 Qualità | `controller/MeteorController.java` | Sostituiti `System.out.println` con logger SLF4J |
+| 1 | 🔴 Bug | `handler/TcpConnectionHandlerReadExactly.java` | Aggiunto null check su `response.getCommands()` nel blocco `finally` (v1.2) |
+| 2 | 🟡 Qualità | `controller/MeteorController.java` | Sostituiti `System.out.println` con logger SLF4J (v1.2) |
+| 3 | 🟢 Feature | `config/ConditionalOnJpaDatabase`, `config/JpaDatabaseCondition` | Nuova meta-annotazione per supportare sia SQL Server che TimescaleDB (v1.3) |
+| 4 | 🟢 Feature | `application-timescaledb.properties`, `db-timescaledb-schema.sql` | Nuovo profilo TimescaleDB con schema hypertable PostgreSQL (v1.3) |
+| 5 | 🟢 Feature | `utils/ControllerUtils` | Nuovi metodi: `bytesToHex()`, `commandsToHexString()`, `commandsToAsciiString()`, `enrichResponseWithConcatenatedCommands()`; `concatenateCommands()` ora ritorna `byte[]` (v1.3) |
+| 6 | 🟢 Feature | Test suite | Nuovi test: `MessageTypeParserTest`, `EncoderFactoryTest`, `ControllerUtilsTest`, `MessageType16ResponseTest`, `MessageType17ResponseTest` (v1.3) |
 
 ---
 
-*Fine documento — onGas_Meteor context v1.2*
+*Fine documento — onGas_Meteor context v1.3*
