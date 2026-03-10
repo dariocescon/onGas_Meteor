@@ -253,8 +253,10 @@ Dispositivo IoT riceve risposta
 
 #### `InfluxDBBatchInsertService`
 - **Tipo**: `@Service`, `@ConditionalOnInfluxDatabase` (attivo per `database.type=influxdb`)
-- **Funzione**: Implementazione di `BatchWriteService` per InfluxDB. Stessa architettura di `BatchInsertService` (code concorrenti + flush periodico), ma usa `WriteApiBlocking.writePoints()` al posto di `JdbcTemplate.batchUpdate()`. Converte le entity in `Point` tramite `InfluxDBPointMapper`.
-- **Property**: `batch.insert.size=100` (dimensione batch), `batch.insert.interval-ms=2000` (intervallo flush in ms)
+- **Funzione**: Implementazione di `BatchWriteService` per InfluxDB. Supporta due modalità configurabili tramite `batch.insert.interval-ms`:
+  - **Modalità diretta** (`batch.insert.interval-ms=-1`): ogni record viene scritto immediatamente su InfluxDB tramite `WriteApiBlocking.writePoint()`, senza accodamento.
+  - **Modalità batch** (`batch.insert.interval-ms>0`): i record vengono accumulati in code concorrenti (`ConcurrentLinkedQueue`) e scritti periodicamente in batch tramite `WriteApiBlocking.writePoints()`. In questa modalità `batch.insert.size` deve essere `> 0`.
+- **Property**: `batch.insert.size=100` (dimensione batch, richiesto `> 0` se interval-ms `> 0`), `batch.insert.interval-ms=2000` (intervallo flush in ms; `-1` disabilita il batch)
 
 #### `DataCleanupService`
 - **Tipo**: `@Service`, `@ConditionalOnProperty(cleanup.enabled=true)`

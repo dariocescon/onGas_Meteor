@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
+
 import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnInfluxDatabase;
 import com.aton.proj.oneGasMeteor.entity.DeviceLocationEntity;
 import com.aton.proj.oneGasMeteor.entity.DeviceSettingsEntity;
@@ -41,6 +43,9 @@ public class InfluxDBBatchInsertService implements BatchWriteService {
     @Value("${batch.insert.size:100}")
     private int batchSize;
 
+    @Value("${batch.insert.interval-ms:2000}")
+    private long batchInsertIntervalMs;
+
     private final ConcurrentLinkedQueue<TelemetryEntity> telemetryQueue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<DeviceSettingsEntity> settingsQueue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<DeviceStatisticsEntity> statisticsQueue = new ConcurrentLinkedQueue<>();
@@ -53,28 +58,64 @@ public class InfluxDBBatchInsertService implements BatchWriteService {
         log.info("InfluxDBBatchInsertService initialized");
     }
 
+    @PostConstruct
+    void validate() {
+        if (batchInsertIntervalMs == 0 || batchInsertIntervalMs < -1) {
+            throw new IllegalStateException(
+                    "batch.insert.interval-ms must be -1 (batch disabled) or > 0 (batch enabled), got: " + batchInsertIntervalMs);
+        }
+        if (batchInsertIntervalMs > 0 && batchSize <= 0) {
+            throw new IllegalStateException(
+                    "batch.insert.size must be > 0 when batch.insert.interval-ms > 0 (current batch.insert.size=" + batchSize + ")");
+        }
+        if (batchInsertIntervalMs == -1) {
+            log.info("InfluxDBBatchInsertService: batch mode DISABLED (batch.insert.interval-ms=-1), writing directly to InfluxDB");
+        } else {
+            log.info("InfluxDBBatchInsertService: batch mode ENABLED (interval-ms={}, size={})", batchInsertIntervalMs, batchSize);
+        }
+    }
+
     @Override
     public void enqueue(TelemetryEntity entity) {
-        telemetryQueue.add(entity);
+        if (batchInsertIntervalMs == -1) {
+            writeDirectly(InfluxDBPointMapper.toPoint(entity), "telemetry");
+        } else {
+            telemetryQueue.add(entity);
+        }
     }
 
     @Override
     public void enqueue(DeviceSettingsEntity entity) {
-        settingsQueue.add(entity);
+        if (batchInsertIntervalMs == -1) {
+            writeDirectly(InfluxDBPointMapper.toPoint(entity), "device_settings");
+        } else {
+            settingsQueue.add(entity);
+        }
     }
 
     @Override
     public void enqueue(DeviceStatisticsEntity entity) {
-        statisticsQueue.add(entity);
+        if (batchInsertIntervalMs == -1) {
+            writeDirectly(InfluxDBPointMapper.toPoint(entity), "device_statistics");
+        } else {
+            statisticsQueue.add(entity);
+        }
     }
 
     @Override
     public void enqueue(DeviceLocationEntity entity) {
-        locationQueue.add(entity);
+        if (batchInsertIntervalMs == -1) {
+            writeDirectly(InfluxDBPointMapper.toPoint(entity), "device_locations");
+        } else {
+            locationQueue.add(entity);
+        }
     }
 
     @Scheduled(fixedDelayString = "${batch.insert.interval-ms:2000}")
     public void flushAll() {
+        if (batchInsertIntervalMs == -1) {
+            return;
+        }
         if (telemetryQueue.isEmpty() && settingsQueue.isEmpty()
                 && statisticsQueue.isEmpty() && locationQueue.isEmpty()) {
             log.trace("All queues empty, skipping flush cycle");
@@ -192,6 +233,15 @@ public class InfluxDBBatchInsertService implements BatchWriteService {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private void writeDirectly(Point point, String entityType) {
+        try {
+            writeApi.writePoint(point);
+            log.debug("Direct write {}: record persisted", entityType);
+        } catch (Exception ex) {
+            log.error("Direct write failed for {}: {}", entityType, ex.getMessage(), ex);
+        }
+    }
 
     private <T> List<T> drain(ConcurrentLinkedQueue<T> queue) {
         List<T> list = new ArrayList<>(batchSize);
