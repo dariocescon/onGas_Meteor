@@ -2,7 +2,7 @@
 
 > Documento di riferimento unico per architettura, componenti, flussi, database, API e configurazione di **onGas_Meteor**.  
 > Generato da: lettura completa di `docs/` e del codice sorgente.  
-> Ultimo aggiornamento: v1.3 — aggiornamento completo codice sorgente: supporto TimescaleDB, nuove classi config, metodi ControllerUtils aggiornati, nuovi test.
+> Ultimo aggiornamento: v1.5 — aggiornamento completo codice sorgente: supporto H2 in-memory e PostgreSQL come nuovi profili DB, `JpaDatabaseCondition` e `SqlCommandsCondition` aggiornate, `InfluxDBBatchInsertService` refactoring batch via `batch.insert.size`, fix condizione modalità diretta.
 
 ---
 
@@ -36,7 +36,7 @@
 | **ArtifactId**  | `oneGasMeteor`                              |
 | **Framework**   | Spring Boot **3.5.10**                      |
 | **Linguaggio**  | Java **21** (con Virtual Threads)           |
-| **Database**    | SQL Server (default) — TimescaleDB (profilo `timescaledb`) |
+| **Database**    | SQL Server (default) — H2 in-memory — PostgreSQL — TimescaleDB — InfluxDB |
 | **Build tool**  | Maven (wrapper incluso)                     |
 | **Porta HTTP**  | `8081` (configurabile)                      |
 | **Porta TCP**   | `8091` (configurabile)                      |
@@ -88,7 +88,7 @@ Il server:
            │
 ┌──────────▼──────────────────────────────────────────────────────┐
 │                        DATABASE LAYER                           │
-│  SQL Server (oneGasDB)       TimescaleDB (profilo timescaledb)  │
+│  SQL Server   H2 in-memory   PostgreSQL   TimescaleDB  InfluxDB │
 │  - TELEMETRY_DATA            - Stesse tabelle come hypertable   │
 │  - DEVICE_COMMANDS                                              │
 │  - DEVICE_SETTINGS                                              │
@@ -174,7 +174,7 @@ TcpConnectionHandler
 Dispositivo IoT riceve risposta
 ```
 
-> **Nota**: `BatchInsertService` persiste le entity su SQL Server in modo asincrono a intervalli di `batch.insert.interval-ms=2000` ms con batch di `batch.insert.size=500` record. Il sotto-passo 6 accoda le entity senza bloccare il flusso principale.
+> **Nota**: `BatchInsertService` persiste le entity in modo asincrono a intervalli di `batch.insert.interval-ms=2000` ms con batch di `batch.insert.size=500` record. Il sotto-passo 6 accoda le entity senza bloccare il flusso principale. Per InfluxDB, `batch.insert.size=-1` disabilita il batch e abilita la scrittura diretta.
 
 ---
 
@@ -253,10 +253,10 @@ Dispositivo IoT riceve risposta
 
 #### `InfluxDBBatchInsertService`
 - **Tipo**: `@Service`, `@ConditionalOnInfluxDatabase` (attivo per `database.type=influxdb`)
-- **Funzione**: Implementazione di `BatchWriteService` per InfluxDB. Supporta due modalità configurabili tramite `batch.insert.interval-ms`:
+- **Funzione**: Implementazione di `BatchWriteService` per InfluxDB. Supporta due modalità configurabili tramite `batch.insert.size`:
   - **Modalità diretta** (`batch.insert.size=-1`): ogni record viene scritto immediatamente su InfluxDB tramite `WriteApiBlocking.writePoint()`, senza accodamento.
   - **Modalità batch** (`batch.insert.size>0`): i record vengono accumulati in code concorrenti (`ConcurrentLinkedQueue`) e scritti periodicamente in batch tramite `WriteApiBlocking.writePoints()`.
-- **Property**: `batch.insert.size=100` (dimensione batch; `-1` disabilita il batch), `batch.insert.interval-ms=2000` (intervallo flush in ms;)
+- **Property**: `batch.insert.size=-1` (default: batch disabilitato; `>0` abilita il batch), `batch.insert.interval-ms=2000` (intervallo flush in ms)
 
 #### `DataCleanupService`
 - **Tipo**: `@Service`, `@ConditionalOnProperty(cleanup.enabled=true)`
@@ -397,12 +397,12 @@ String getEncoderName();
 |--------|---------|
 | `SchedulerConfig` | `@EnableScheduling` per il cleanup schedulato |
 | `tcp/TcpServerProperties` | Binding `@ConfigurationProperties(prefix = "tcp.server")` con: `port` (default 8091), `timeout` (default 10000 ms), `maxConnections` (default 10000), `backlog` (default 1024) |
-| `ConditionalOnJpaDatabase` | Meta-annotazione: attiva bean solo quando `database.type` è `sqlserver` o `timescaledb`. |
-| `JpaDatabaseCondition` | Condition usata da `@ConditionalOnJpaDatabase`. Restituisce `true` se `database.type` è `sqlserver` o `timescaledb` (default: `sqlserver`). |
+| `ConditionalOnJpaDatabase` | Meta-annotazione: attiva bean solo quando `database.type` è `sqlserver`, `postgresql`, `h2mem` o `timescaledb`. |
+| `JpaDatabaseCondition` | Condition usata da `@ConditionalOnJpaDatabase`. Restituisce `true` se `database.type` è `sqlserver`, `postgresql`, `h2mem` o `timescaledb` (default: `sqlserver`). |
 | `ConditionalOnInfluxDatabase` | Meta-annotazione: attiva bean solo quando `database.type=influxdb`. |
 | `InfluxDatabaseCondition` | Condition usata da `@ConditionalOnInfluxDatabase`. |
-| `ConditionalOnSqlCommands` | Meta-annotazione: attiva bean per command repository in tutti i modi (sqlserver, timescaledb, influxdb). |
-| `SqlCommandsCondition` | Condition usata da `@ConditionalOnSqlCommands`. |
+| `ConditionalOnSqlCommands` | Meta-annotazione: attiva bean per command repository in tutti i modi (sqlserver, postgresql, h2mem, timescaledb, influxdb). |
+| `SqlCommandsCondition` | Condition usata da `@ConditionalOnSqlCommands`. Restituisce `true` per tutti i tipi di database: `sqlserver`, `postgresql`, `h2mem`, `timescaledb`, `influxdb`. |
 | `InfluxDBConfig` | Configurazione InfluxDB: crea bean `InfluxDBClient`, `WriteApiBlocking`, `InfluxDBProperties`. Attiva solo con `@ConditionalOnInfluxDatabase`. |
 
 ---
@@ -636,9 +636,11 @@ for (byte b : bytes) {
 
 ### Panoramica
 
-Il sistema supporta tre tipi di database configurabili via `database.type`:
+Il sistema supporta cinque tipi di database configurabili via `database.type`:
 
 - **SQL Server** (default, `database.type=sqlserver`) — database relazionale con schema gestito tramite script SQL; 5 tabelle principali.
+- **H2 in-memory** (`database.type=h2mem`, profilo Spring `h2mem`) — database in-memory per sviluppo/test locale; `spring.jpa.hibernate.ddl-auto=update` (schema generato automaticamente). Abilita la H2 console su `/h2-console`.
+- **PostgreSQL** (`database.type=postgresql`, profilo Spring `postgresql`) — database relazionale PostgreSQL standalone; `spring.jpa.hibernate.ddl-auto=validate`.
 - **TimescaleDB** (`database.type=timescaledb`, profilo Spring `timescaledb`) — PostgreSQL con estensione TimescaleDB; le tabelle di serie temporali sono create come **hypertable** con partizionamento a 7 giorni. Schema definito in `db-timescaledb-schema.sql`.
 - **InfluxDB 2.x** (`database.type=influxdb`, profilo Spring `influxdb`) — architettura ibrida: InfluxDB per dati time-series (telemetria, settings, statistiche, location, metriche), SQL (configurabile SqlServer o PostgreSQL) per device_commands.
 
@@ -1001,7 +1003,7 @@ Stato del servizio cleanup.
 | `tcp.server.max-connections` | `10000` | — | Numero massimo di connessioni TCP concorrenti (Semaphore permits) |
 | `tcp.server.backlog` | `1024` | — | Dimensione coda connessioni in attesa del `ServerSocket` |
 | `device.enabled.types` | `TEK822V1,TEK822V2,TEK586` | — | Device types abilitati (comma-separated) |
-| `database.type` | `sqlserver` | — | Tipo DB: `sqlserver`, `timescaledb` o `influxdb` |
+| `database.type` | `sqlserver` | — | Tipo DB: `sqlserver`, `h2mem`, `postgresql`, `timescaledb` o `influxdb` |
 | `spring.datasource.url` | `jdbc:sqlserver://localhost:1433;databaseName=oneGasDB;encrypt=false;trustServerCertificate=true` | — | URL SQL Server |
 | `spring.datasource.username` | *(obbligatorio)* | `SQL_DB_USERNAME` | Username SQL Server |
 | `spring.datasource.password` | *(obbligatorio)* | `SQL_DB_PASSWORD` | Password SQL Server |
@@ -1020,7 +1022,7 @@ Stato del servizio cleanup.
 | `cleanup.commands.retention.days` | `7` | — | Giorni di retention comandi |
 | `cleanup.metrics.retention.days` | `90` | — | Giorni di retention metriche di performance |
 | `metrics.enabled` | `true` | — | Abilita salvataggio metriche di performance su DB |
-| `batch.insert.size` | `500` | — | Numero di record per batch INSERT |
+| `batch.insert.size` | `500` | — | Numero di record per batch INSERT (JPA). Per InfluxDB: `-1` = batch disabilitato (scrittura diretta), `>0` = batch abilitato |
 | `batch.insert.interval-ms` | `2000` | — | Intervallo flush batch in ms |
 | `logging.level.com.aton.proj.oneGasMeteor` | `DEBUG` | — | Log level applicazione |
 | `logging.level.org.springframework.web` | `INFO` | — | Log level Spring Web |
@@ -1028,6 +1030,40 @@ Stato del servizio cleanup.
 | `logging.level.org.springframework.integration` | `DEBUG` | — | Log level Spring Integration |
 | `logging.level.org.springframework.integration.ip` | `TRACE` | — | Log level Spring Integration IP (TCP) |
 | `logging.config` | `classpath:log4j2.properties` | — | Config Log4j2 |
+
+### Configurazione H2 in-memory (profilo Spring `h2mem`)
+
+Attivare con `--spring.profiles.active=h2mem` oppure `SPRING_PROFILES_ACTIVE=h2mem`.  
+Il file `application-h2mem.properties` configura il datasource H2 in-memory:
+
+```properties
+database.type=h2mem
+spring.datasource.url=jdbc:h2:mem:oneGasDB;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+spring.datasource.username=${SQL_DB_USERNAME}
+spring.datasource.password=${SQL_DB_PASSWORD}
+spring.datasource.driver-class-name=org.h2.Driver
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+spring.jpa.hibernate.ddl-auto=update
+```
+
+**Note**: Schema generato automaticamente da Hibernate (`ddl-auto=update`). H2 console disponibile su `http://localhost:8081/h2-console`. Usato come profilo di default in `application.properties`.
+
+### Configurazione PostgreSQL (profilo Spring `postgresql`)
+
+Attivare con `--spring.profiles.active=postgresql` oppure `SPRING_PROFILES_ACTIVE=postgresql`.  
+Il file `application-postgresql.properties` configura il datasource PostgreSQL:
+
+```properties
+database.type=postgresql
+spring.datasource.url=jdbc:postgresql://localhost:5432/oneGasDB
+spring.datasource.username=${SQL_DB_USERNAME}
+spring.datasource.password=${SQL_DB_PASSWORD}
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.hibernate.ddl-auto=validate
+```
 
 ### Configurazione TimescaleDB (profilo Spring `timescaledb`)
 
@@ -1062,6 +1098,10 @@ spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=oneGasDB;encr
 spring.datasource.username=${SQL_DB_USERNAME}
 spring.datasource.password=${SQL_DB_PASSWORD}
 spring.jpa.hibernate.ddl-auto=update
+
+# Batch INSERT InfluxDB: -1 = batch DISABILITATO (scrittura diretta), >0 = batch ABILITATO
+batch.insert.size=-1
+batch.insert.interval-ms=2000
 ```
 
 **Architettura ibrida**: Con `database.type=influxdb`, i dati time-series (telemetria, settings, statistiche, location, metriche di processing) vengono scritti su InfluxDB come measurements. I comandi (`device_commands`) restano su SQL tramite JPA.
@@ -1483,7 +1523,7 @@ Aggiunto controllo esplicito su `response.getCommands() != null` e sostituito `.
 
 ---
 
-### Riepilogo correzioni e aggiunte (v1.1 → v1.3)
+### Riepilogo correzioni e aggiunte (v1.1 → v1.5)
 
 | # | Tipo | File/Area | Descrizione |
 |---|------|------|-------------|
@@ -1499,7 +1539,15 @@ Aggiunto controllo esplicito su `response.getCommands() != null` e sostituito `.
 | 10 | 🟢 Feature | `service/BatchWriteService`, `InfluxDBBatchInsertService` | Interfaccia batch write + implementazione InfluxDB (v1.4) |
 | 11 | 🟢 Feature | `repository/impl/influxdb/*` | 5 repository InfluxDB + InfluxDBPointMapper + FluxQueryHelper (v1.4) |
 | 12 | 🟢 Feature | `application-influxdb.properties`, `docker-compose-influxdb.yml` | Profilo Spring InfluxDB + Docker Compose dev locale (v1.4) |
+| 13 | 🟢 Feature | `InfluxDBBatchInsertService`, `application-influxdb.properties` | Batch insert InfluxDB reso parametrico via `batch.insert.interval-ms` (PR #16, v1.5) |
+| 14 | 🟡 Refactoring | `InfluxDBBatchInsertService`, `application-influxdb.properties` | `batch.insert.size` ora controlla la modalità batch (`-1` = diretta, `>0` = batch); default cambiato a `-1` (v1.5) |
+| 15 | 🔴 Bug | `InfluxDBBatchInsertService` | Fix condizione modalità diretta: controllo su `batchSize == -1` invece di `batchInsertIntervalMs == -1` in tutti i metodi `enqueue()` (v1.5) |
+| 16 | 🟢 Feature | `application-h2mem.properties` | Nuovo profilo H2 in-memory per sviluppo/test locale; `database.type=h2mem`, `ddl-auto=update`, H2 console abilitata (v1.5) |
+| 17 | 🟢 Feature | `application-postgresql.properties` | Nuovo profilo PostgreSQL standalone; `database.type=postgresql`, `ddl-auto=validate` (v1.5) |
+| 18 | 🟡 Refactoring | `config/JpaDatabaseCondition` | Aggiunto supporto per `postgresql` e `h2mem` come database JPA (v1.5) |
+| 19 | 🟡 Refactoring | `config/SqlCommandsCondition` | Aggiunto supporto per `postgresql` e `h2mem` nel condition dei command repository (v1.5) |
+| 20 | 🟡 Refactoring | `application.properties` | Semplificato: rimossi blocchi inline SQL Server/MongoDB, aggiunta documentazione profili; profilo di default cambiato in `h2mem` (v1.5) |
 
 ---
 
-*Fine documento — onGas_Meteor context v1.4*
+*Fine documento — onGas_Meteor context v1.5*
