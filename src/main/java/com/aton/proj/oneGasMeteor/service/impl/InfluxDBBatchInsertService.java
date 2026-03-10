@@ -70,7 +70,7 @@ public class InfluxDBBatchInsertService implements BatchWriteService {
 
 	@Override
 	public void enqueue(TelemetryEntity entity) {
-		if (batchInsertIntervalMs == -1) {
+		if (batchSize == -1) {
 			writeDirectly(InfluxDBPointMapper.toPoint(entity), "telemetry");
 		} else {
 			telemetryQueue.add(entity);
@@ -79,7 +79,7 @@ public class InfluxDBBatchInsertService implements BatchWriteService {
 
 	@Override
 	public void enqueue(DeviceSettingsEntity entity) {
-		if (batchInsertIntervalMs == -1) {
+		if (batchSize == -1) {
 			writeDirectly(InfluxDBPointMapper.toPoint(entity), "device_settings");
 		} else {
 			settingsQueue.add(entity);
@@ -88,7 +88,7 @@ public class InfluxDBBatchInsertService implements BatchWriteService {
 
 	@Override
 	public void enqueue(DeviceStatisticsEntity entity) {
-		if (batchInsertIntervalMs == -1) {
+		if (batchSize == -1) {
 			writeDirectly(InfluxDBPointMapper.toPoint(entity), "device_statistics");
 		} else {
 			statisticsQueue.add(entity);
@@ -97,7 +97,7 @@ public class InfluxDBBatchInsertService implements BatchWriteService {
 
 	@Override
 	public void enqueue(DeviceLocationEntity entity) {
-		if (batchInsertIntervalMs == -1) {
+		if (batchSize == -1) {
 			writeDirectly(InfluxDBPointMapper.toPoint(entity), "device_locations");
 		} else {
 			locationQueue.add(entity);
