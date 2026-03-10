@@ -15,6 +15,8 @@ public class SqlCommandsCondition implements Condition {
     public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
         String dbType = context.getEnvironment().getProperty("database.type", "sqlserver");
         return "sqlserver".equalsIgnoreCase(dbType)
+        		|| "postgresql".equalsIgnoreCase(dbType)
+        		|| "h2mem".equalsIgnoreCase(dbType)
                 || "timescaledb".equalsIgnoreCase(dbType)
                 || "influxdb".equalsIgnoreCase(dbType);
     }
