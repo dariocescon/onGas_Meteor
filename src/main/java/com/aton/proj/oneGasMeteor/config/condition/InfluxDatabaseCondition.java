@@ -1,4 +1,4 @@
-package com.aton.proj.oneGasMeteor.config;
+package com.aton.proj.oneGasMeteor.config.condition;
 
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;

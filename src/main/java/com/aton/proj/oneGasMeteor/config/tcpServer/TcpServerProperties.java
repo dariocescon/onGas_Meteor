@@ -1,4 +1,4 @@
-package com.aton.proj.oneGasMeteor.config.tcp;
+package com.aton.proj.oneGasMeteor.config.tcpServer;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;

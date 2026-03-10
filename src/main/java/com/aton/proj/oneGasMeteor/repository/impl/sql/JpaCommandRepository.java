@@ -6,10 +6,10 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.aton.proj.oneGasMeteor.config.ConditionalOnSqlCommands;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnSqlCommands;
 import com.aton.proj.oneGasMeteor.entity.CommandEntity;
 import com.aton.proj.oneGasMeteor.model.DeviceCommand;
 import com.aton.proj.oneGasMeteor.repository.CommandRepository;
@@ -22,14 +22,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 @Repository
 @ConditionalOnSqlCommands
-public class SqlServerCommandRepository implements CommandRepository {
+public class JpaCommandRepository implements CommandRepository {
 
-	private static final Logger log = LoggerFactory.getLogger(SqlServerCommandRepository.class);
+	private static final Logger log = LoggerFactory.getLogger(JpaCommandRepository.class);
 
 	private final CommandJpaRepository jpaRepository;
 	private final ObjectMapper objectMapper;
 
-	public SqlServerCommandRepository(CommandJpaRepository jpaRepository, ObjectMapper objectMapper) {
+	public JpaCommandRepository(CommandJpaRepository jpaRepository, ObjectMapper objectMapper) {
 		this.jpaRepository = jpaRepository;
 		this.objectMapper = objectMapper;
 		log.info("  SqlServerCommandRepository initialized");

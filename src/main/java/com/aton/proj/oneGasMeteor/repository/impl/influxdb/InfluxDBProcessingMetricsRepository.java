@@ -9,8 +9,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
-import com.aton.proj.oneGasMeteor.config.ConditionalOnInfluxDatabase;
 import com.aton.proj.oneGasMeteor.config.InfluxDBConfig.InfluxDBProperties;
+import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnInfluxDatabase;
 import com.aton.proj.oneGasMeteor.entity.ProcessingMetricsEntity;
 import com.aton.proj.oneGasMeteor.repository.ProcessingMetricsRepository;
 import com.influxdb.client.InfluxDBClient;

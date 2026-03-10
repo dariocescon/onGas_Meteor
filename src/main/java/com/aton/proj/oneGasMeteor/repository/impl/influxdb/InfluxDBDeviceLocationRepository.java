@@ -11,8 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
-import com.aton.proj.oneGasMeteor.config.ConditionalOnInfluxDatabase;
 import com.aton.proj.oneGasMeteor.config.InfluxDBConfig.InfluxDBProperties;
+import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnInfluxDatabase;
 import com.aton.proj.oneGasMeteor.entity.DeviceLocationEntity;
 import com.aton.proj.oneGasMeteor.model.MessageType17Response;
 import com.aton.proj.oneGasMeteor.repository.DeviceLocationRepository;

@@ -1,11 +1,11 @@
 package com.aton.proj.oneGasMeteor.repository.impl.sql;
 
+import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnJpaDatabase;
 import com.aton.proj.oneGasMeteor.entity.DeviceStatisticsEntity;
 import com.aton.proj.oneGasMeteor.model.MessageType16Response;
 import com.aton.proj.oneGasMeteor.repository.DeviceStatisticsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,13 +17,13 @@ import java.util.List;
  */
 @Repository
 @ConditionalOnJpaDatabase
-public class SqlServerDeviceStatisticsRepository implements DeviceStatisticsRepository {
+public class JpaDeviceStatisticsRepository implements DeviceStatisticsRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(SqlServerDeviceStatisticsRepository.class);
+    private static final Logger log = LoggerFactory.getLogger(JpaDeviceStatisticsRepository.class);
 
     private final DeviceStatisticsJpaRepository jpaRepository;
 
-    public SqlServerDeviceStatisticsRepository(DeviceStatisticsJpaRepository jpaRepository) {
+    public JpaDeviceStatisticsRepository(DeviceStatisticsJpaRepository jpaRepository) {
         this.jpaRepository = jpaRepository;
         log.info(" SqlServerDeviceStatisticsRepository initialized");
     }

@@ -1,12 +1,12 @@
 package com.aton.proj.oneGasMeteor.repository.impl.sql;
 
+import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnJpaDatabase;
 import com.aton.proj.oneGasMeteor.entity.DeviceSettingsEntity;
 import com.aton.proj.oneGasMeteor.model.MessageType6Response;
 import com.aton.proj.oneGasMeteor.repository.DeviceSettingsRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,14 +18,14 @@ import java.util.List;
  */
 @Repository
 @ConditionalOnJpaDatabase
-public class SqlServerDeviceSettingsRepository implements DeviceSettingsRepository {
+public class JpaDeviceSettingsRepository implements DeviceSettingsRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(SqlServerDeviceSettingsRepository.class);
+    private static final Logger log = LoggerFactory.getLogger(JpaDeviceSettingsRepository.class);
 
     private final DeviceSettingsJpaRepository jpaRepository;
     private final ObjectMapper objectMapper;
 
-    public SqlServerDeviceSettingsRepository(DeviceSettingsJpaRepository jpaRepository, ObjectMapper objectMapper) {
+    public JpaDeviceSettingsRepository(DeviceSettingsJpaRepository jpaRepository, ObjectMapper objectMapper) {
         this.jpaRepository = jpaRepository;
         this.objectMapper = objectMapper;
         log.info(" SqlServerDeviceSettingsRepository initialized");

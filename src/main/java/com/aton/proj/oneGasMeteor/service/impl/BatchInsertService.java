@@ -1,4 +1,4 @@
-package com.aton.proj.oneGasMeteor.service;
+package com.aton.proj.oneGasMeteor.service.impl;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -16,16 +16,17 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnJpaDatabase;
 import com.aton.proj.oneGasMeteor.entity.DeviceLocationEntity;
 import com.aton.proj.oneGasMeteor.entity.DeviceSettingsEntity;
 import com.aton.proj.oneGasMeteor.entity.DeviceStatisticsEntity;
 import com.aton.proj.oneGasMeteor.entity.TelemetryEntity;
+import com.aton.proj.oneGasMeteor.service.BatchWriteService;
 
 /**
  * Service per batch INSERT su SQL Server tramite JdbcTemplate.

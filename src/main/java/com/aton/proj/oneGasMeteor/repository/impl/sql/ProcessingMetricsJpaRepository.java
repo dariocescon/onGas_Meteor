@@ -2,13 +2,13 @@ package com.aton.proj.oneGasMeteor.repository.impl.sql;
 
 import java.time.LocalDateTime;
 
-import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnJpaDatabase;
 import com.aton.proj.oneGasMeteor.entity.ProcessingMetricsEntity;
 
 /**

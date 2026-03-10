@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import com.aton.proj.oneGasMeteor.config.tcp.TcpServerProperties;
+import com.aton.proj.oneGasMeteor.config.tcpServer.TcpServerProperties;
 import com.aton.proj.oneGasMeteor.handler.TcpConnectionHandlerReadExactly;
 
 import jakarta.annotation.PreDestroy;

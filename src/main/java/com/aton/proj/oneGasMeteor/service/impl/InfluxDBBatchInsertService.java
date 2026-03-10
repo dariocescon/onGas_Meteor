@@ -1,4 +1,4 @@
-package com.aton.proj.oneGasMeteor.service;
+package com.aton.proj.oneGasMeteor.service.impl;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -15,12 +15,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import com.aton.proj.oneGasMeteor.config.ConditionalOnInfluxDatabase;
+import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnInfluxDatabase;
 import com.aton.proj.oneGasMeteor.entity.DeviceLocationEntity;
 import com.aton.proj.oneGasMeteor.entity.DeviceSettingsEntity;
 import com.aton.proj.oneGasMeteor.entity.DeviceStatisticsEntity;
 import com.aton.proj.oneGasMeteor.entity.TelemetryEntity;
 import com.aton.proj.oneGasMeteor.repository.impl.influxdb.InfluxDBPointMapper;
+import com.aton.proj.oneGasMeteor.service.BatchWriteService;
 import com.influxdb.client.WriteApiBlocking;
 import com.influxdb.client.write.Point;
 

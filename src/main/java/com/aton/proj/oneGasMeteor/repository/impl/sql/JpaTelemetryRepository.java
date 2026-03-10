@@ -6,10 +6,10 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.aton.proj.oneGasMeteor.config.ConditionalOnJpaDatabase;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnJpaDatabase;
 import com.aton.proj.oneGasMeteor.entity.TelemetryEntity;
 import com.aton.proj.oneGasMeteor.model.DecodedMessage;
 import com.aton.proj.oneGasMeteor.repository.TelemetryRepository;
@@ -20,14 +20,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 @Repository
 @ConditionalOnJpaDatabase
-public class SqlServerTelemetryRepository implements TelemetryRepository {
+public class JpaTelemetryRepository implements TelemetryRepository {
 
-	private static final Logger log = LoggerFactory.getLogger(SqlServerTelemetryRepository.class);
+	private static final Logger log = LoggerFactory.getLogger(JpaTelemetryRepository.class);
 
 	private final TelemetryJpaRepository jpaRepository;
 	private final ObjectMapper objectMapper;
 
-	public SqlServerTelemetryRepository(TelemetryJpaRepository jpaRepository, ObjectMapper objectMapper) {
+	public JpaTelemetryRepository(TelemetryJpaRepository jpaRepository, ObjectMapper objectMapper) {
 		this.jpaRepository = jpaRepository;
 		this.objectMapper = objectMapper;
 		log.info(" SqlServerTelemetryRepository initialized");

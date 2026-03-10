@@ -1,4 +1,4 @@
-package com.aton.proj.oneGasMeteor.config;
+package com.aton.proj.oneGasMeteor.config.condition;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
