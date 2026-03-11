@@ -56,14 +56,14 @@ public class TcpConnectionHandlerReadExactly {
 			context.endRead();
 
 			context.setPayloadLengthBytes(receivedData.length);
-			log.info(" [TCP PORT {}] Messaggio ricevuto: {} byte (header 17 + body {})",
+			log.trace("[TCP PORT {}] Messaggio ricevuto: {} byte (header 17 + body {})",
 					socket.getPort(), receivedData.length, receivedData.length - HEADER_SIZE);
 
 			// 2. Crea il messaggio di telemetria
 			TelemetryMessage message = new TelemetryMessage(receivedData, clientAddress);
 			response = telemetryService.processTelemetry(message, context);
 
-			log.info("  [TCP PORT {}] Telemetry processed successfully for device: {} (type: {})", tcpPort,
+			log.debug("[TCP PORT {}] Telemetry processed successfully for device: {} (type: {})", tcpPort,
 					response.getDeviceId(), response.getDeviceType());
 
 			// GENERA RISPOSTA CON COMANDI
@@ -73,15 +73,15 @@ public class TcpConnectionHandlerReadExactly {
 
 				ControllerUtils.enrichResponseWithConcatenatedCommands(response);
 
-				log.info("   Sending {} commands back to device: {}", response.getCommands().size(),
+				log.debug("Sending {} commands back to device: {}", response.getCommands().size(),
 						response.getConcatenatedCommandsAscii());
-				log.debug("  Commands bytes: {} bytes", response.getConcatenatedCommandsAscii().getBytes().length);
-				log.debug("  Commands ASCII: {}", response.getConcatenatedCommandsAscii());
+				log.trace("Commands bytes: {} bytes", response.getConcatenatedCommandsAscii().getBytes().length);
+				log.trace("Commands ASCII: {}", response.getConcatenatedCommandsAscii());
 				replyBytes = response.getConcatenatedCommandsAscii().getBytes();
 
 			} else {
 				// Nessun comando: risposta vuota
-				log.info("    No commands for device, sending empty response");
+				log.debug("No commands for device, sending empty response");
 				replyBytes = new byte[0];
 			}
 
@@ -92,7 +92,7 @@ public class TcpConnectionHandlerReadExactly {
 			context.setResponseSizeBytes(replyBytes.length);
 
 			context.complete(true, null);
-			log.info("Successfully handled connection from {}", clientAddress);
+			log.debug("Successfully handled connection from {}", clientAddress);
 
 		} catch (SocketTimeoutException e) {
 			log.error("Timeout reading from {}", clientAddress);
@@ -108,7 +108,7 @@ public class TcpConnectionHandlerReadExactly {
 
 			if (response != null && response.getCommands() != null && !response.getCommands().isEmpty()) {
 				telemetryService.markCommandsAsSent(response.getCommands());
-				log.info("Successfully updated {} commands. Marked as SENT", response.getCommands().size());
+				log.debug("Successfully updated {} commands. Marked as SENT", response.getCommands().size());
 			}
 
 			// Salva metriche su DB (in try-catch isolato per non impattare il flusso)

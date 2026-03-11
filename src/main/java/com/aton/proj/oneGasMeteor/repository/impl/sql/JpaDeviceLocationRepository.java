@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Implementazione SQL Server per DeviceLocationRepository
+ * Implementazione SQL per DeviceLocationRepository
  */
 @Repository
 @ConditionalOnJpaDatabase
@@ -25,7 +25,7 @@ public class JpaDeviceLocationRepository implements DeviceLocationRepository {
 
     public JpaDeviceLocationRepository(DeviceLocationJpaRepository jpaRepository) {
         this.jpaRepository = jpaRepository;
-        log.info(" SqlServerDeviceLocationRepository initialized");
+        log.info("JpaDeviceLocationRepository initialized");
     }
 
     @Override
@@ -34,12 +34,12 @@ public class JpaDeviceLocationRepository implements DeviceLocationRepository {
             DeviceLocationEntity entity = buildEntity(gps, rawMessage);
 
             DeviceLocationEntity saved = jpaRepository.save(entity);
-            log.debug(" Saved device location: id={}, deviceId={}", saved.getId(), gps.getDeviceId());
+            log.debug("Saved device location: id={}, deviceId={}", saved.getId(), gps.getDeviceId());
 
             return saved;
 
         } catch (Exception e) {
-            log.error(" Failed to save device location for device: {}", gps.getDeviceId(), e);
+            log.error("Failed to save device location for device: {}", gps.getDeviceId(), e);
             throw new RuntimeException("Failed to save device location", e);
         }
     }
@@ -81,6 +81,6 @@ public class JpaDeviceLocationRepository implements DeviceLocationRepository {
     @Transactional
     public void deleteOlderThan(LocalDateTime threshold) {
         int deleted = jpaRepository.deleteByReceivedAtBefore(threshold);
-        log.info("  Deleted {} old device location records before {}", deleted, threshold);
+        log.info(" Deleted {} old device location records before {}", deleted, threshold);
     }
 }

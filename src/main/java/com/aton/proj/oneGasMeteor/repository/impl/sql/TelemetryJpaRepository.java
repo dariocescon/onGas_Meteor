@@ -13,7 +13,7 @@ import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnJpaDatabase;
 import com.aton.proj.oneGasMeteor.entity.TelemetryEntity;
 
 /**
- * JPA Repository per TelemetryEntity (SQL Server)
+ * JPA Repository per TelemetryEntity
  */
 @Repository
 @ConditionalOnJpaDatabase

@@ -32,7 +32,7 @@ public class JpaCommandRepository implements CommandRepository {
 	public JpaCommandRepository(CommandJpaRepository jpaRepository, ObjectMapper objectMapper) {
 		this.jpaRepository = jpaRepository;
 		this.objectMapper = objectMapper;
-		log.info("  SqlServerCommandRepository initialized");
+		log.info("JpaCommandRepository initialized");
 	}
 
 	@Override
@@ -44,18 +44,17 @@ public class JpaCommandRepository implements CommandRepository {
 			// Serializza parametri in JSON
 			if (command.getParameters() != null && !command.getParameters().isEmpty()) {
 				String paramsJson = objectMapper.writeValueAsString(command.getParameters());
-				System.err.println(paramsJson);
 				entity.setCommandParamsJson(paramsJson);
 			}
 
 			CommandEntity saved = jpaRepository.save(entity);
-			log.debug("  Saved command: id={}, type={}, deviceId={}", saved.getId(), saved.getCommandType(),
+			log.debug("Saved command: id={}, type={}, deviceId={}", saved.getId(), saved.getCommandType(),
 					saved.getDeviceId());
 
 			return saved;
 
 		} catch (Exception e) {
-			log.error("  Failed to save command for device: {}", command.getDeviceId(), e);
+			log.error("Failed to save command for device: {}", command.getDeviceId(), e);
 			throw new RuntimeException("Failed to save command", e);
 		}
 	}
@@ -82,7 +81,7 @@ public class JpaCommandRepository implements CommandRepository {
 		jpaRepository.findById(commandId).ifPresent(entity -> {
 			entity.setStatus(status);
 			jpaRepository.save(entity);
-			log.debug(" Updated command {} status to {}", commandId, status);
+			log.debug("Updated command {} status to {}", commandId, status);
 		});
 	}
 
@@ -93,7 +92,7 @@ public class JpaCommandRepository implements CommandRepository {
 			entity.setStatus(CommandEntity.CommandStatus.SENT);
 			entity.setSentAt(LocalDateTime.now());
 			jpaRepository.save(entity);
-			log.debug(" Marked command {} as SENT", commandId);
+			log.debug("Marked command {} as SENT", commandId);
 		});
 	}
 
@@ -104,7 +103,7 @@ public class JpaCommandRepository implements CommandRepository {
 			entity.setStatus(CommandEntity.CommandStatus.DELIVERED);
 			entity.setDeliveredAt(LocalDateTime.now());
 			jpaRepository.save(entity);
-			log.debug(" Marked command {} as DELIVERED", commandId);
+			log.debug("Marked command {} as DELIVERED", commandId);
 		});
 	}
 
@@ -115,7 +114,7 @@ public class JpaCommandRepository implements CommandRepository {
 			entity.setStatus(CommandEntity.CommandStatus.FAILED);
 			entity.setErrorMessage(errorMessage);
 			jpaRepository.save(entity);
-			log.warn(" Marked command {} as FAILED: {}", commandId, errorMessage);
+			log.warn("Marked command {} as FAILED: {}", commandId, errorMessage);
 		});
 	}
 
@@ -125,7 +124,7 @@ public class JpaCommandRepository implements CommandRepository {
 		jpaRepository.findById(commandId).ifPresent(entity -> {
 			entity.setRetryCount(entity.getRetryCount() + 1);
 			jpaRepository.save(entity);
-			log.debug(" Incremented retry count for command {}: {}/{}", commandId, entity.getRetryCount(),
+			log.debug("Incremented retry count for command {}: {}/{}", commandId, entity.getRetryCount(),
 					entity.getMaxRetries());
 		});
 	}
@@ -135,7 +134,7 @@ public class JpaCommandRepository implements CommandRepository {
 	public void deleteOldCompletedCommands(int daysOld) {
 		LocalDateTime threshold = LocalDateTime.now().minusDays(daysOld);
 		int deleted = jpaRepository.deleteOldCompleted(threshold);
-		log.info("  Deleted {} old completed commands before {}", deleted, threshold);
+		log.info("Deleted {} old completed commands before {}", deleted, threshold);
 	}
 
 }

@@ -12,7 +12,7 @@ import com.aton.proj.oneGasMeteor.config.condition.ConditionalOnJpaDatabase;
 import com.aton.proj.oneGasMeteor.entity.ProcessingMetricsEntity;
 
 /**
- * JPA Repository per ProcessingMetricsEntity (SQL Server)
+ * JPA Repository per ProcessingMetricsEntity
  */
 @Repository
 @ConditionalOnJpaDatabase

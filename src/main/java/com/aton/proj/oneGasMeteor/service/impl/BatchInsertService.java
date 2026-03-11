@@ -29,7 +29,7 @@ import com.aton.proj.oneGasMeteor.entity.TelemetryEntity;
 import com.aton.proj.oneGasMeteor.service.BatchWriteService;
 
 /**
- * Service per batch INSERT su SQL Server tramite JdbcTemplate.
+ * Service per batch INSERT su db SQL tramite JdbcTemplate.
  * Raccoglie le entity in code concorrenti e le persiste periodicamente.
  */
 @Service

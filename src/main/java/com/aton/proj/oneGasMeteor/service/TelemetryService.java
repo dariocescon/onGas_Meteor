@@ -103,7 +103,7 @@ public class TelemetryService {
 		try {
 			// 2. SELEZIONA IL DECODER APPROPRIATO
 			DeviceDecoder decoder = decoderFactory.getDecoder(message.getPayload());
-			log.debug("  Selected decoder: {}", decoder.getDecoderName());
+			log.debug("Selected decoder: {}", decoder.getDecoderName());
 
 			// 4. DECODIFICA IL MESSAGGIO
 			if (context != null) context.startDecode();
@@ -119,7 +119,7 @@ public class TelemetryService {
 				context.extractFromDecoded(decoded);
 			}
 
-			log.info("  Decoded: deviceType={}, deviceId={}, messageType={}", deviceType, deviceId, messageType);
+			log.info("Decoded: deviceType={}, deviceId={}, messageType={}", deviceType, deviceId, messageType);
 
 			String hexData = message.getHexData();
 			// 5. GESTISCI IN BASE AL MESSAGE TYPE
@@ -130,7 +130,7 @@ public class TelemetryService {
 				TelemetryEntity entity = telemetryRepository
 						.buildEntity(deviceId, deviceType, hexData, decoded);
 				batchWriteService.enqueue(entity);
-				log.info("  Enqueued telemetry for batch insert: deviceId={}", deviceId);
+//				log.info("  Enqueued telemetry for batch insert: deviceId={}", deviceId);
 			}
 			case 6 -> {
 				// Settings response - parse e accoda per batch insert
@@ -140,7 +140,7 @@ public class TelemetryService {
 				DeviceSettingsEntity settingsEntity = deviceSettingsRepository
 						.buildEntity(settings, hexData);
 				batchWriteService.enqueue(settingsEntity);
-				log.info("  Enqueued settings for batch insert: deviceId={}, parameters={}", deviceId, settings.getSettings().size());
+//				log.info("  Enqueued settings for batch insert: deviceId={}, parameters={}", deviceId, settings.getSettings().size());
 			}
 			case 16 -> {
 				// ICCID & Statistics - parse e accoda per batch insert
@@ -149,7 +149,7 @@ public class TelemetryService {
 				DeviceStatisticsEntity statsEntity = deviceStatisticsRepository
 						.buildEntity(stats, hexData);
 				batchWriteService.enqueue(statsEntity);
-				log.info("  Enqueued statistics for batch insert: deviceId={}, ICCID={}", deviceId, stats.getIccid());
+//				log.info("  Enqueued statistics for batch insert: deviceId={}, ICCID={}", deviceId, stats.getIccid());
 			}
 			case 17 -> {
 				// GPS data - parse e accoda per batch insert
@@ -158,10 +158,10 @@ public class TelemetryService {
 				DeviceLocationEntity locationEntity = deviceLocationRepository
 						.buildEntity(gps, hexData);
 				batchWriteService.enqueue(locationEntity);
-				log.info("  Enqueued GPS for batch insert: deviceId={}, lat={}, lon={}", deviceId, gps.getLatitude(), gps.getLongitude());
+//				log.info("  Enqueued GPS for batch insert: deviceId={}, lat={}, lon={}", deviceId, gps.getLatitude(), gps.getLongitude());
 			}
 			default -> {
-				log.warn("  Unknown message type: {}", messageType);
+				log.warn("Unknown message type: {}", messageType);
 			}
 			}
 			if (context != null) context.endDbSave();
@@ -173,7 +173,7 @@ public class TelemetryService {
 				context.endCommandQuery();
 				context.setPendingCommandsFound(pendingCommands.size());
 			}
-			log.debug("   Found {} pending commands for device {}", pendingCommands.size(), deviceId);
+			log.debug("Found {} pending commands for device {}", pendingCommands.size(), deviceId);
 
 			// 7. CODIFICA COMANDI (se presenti)
 			List<TelemetryResponse.EncodedCommand> encodedCommands = new ArrayList<>();
@@ -193,13 +193,13 @@ public class TelemetryService {
 			response.setCommands(encodedCommands);
 
 			long processingTimeMs = Duration.between(receivedAt, LocalDateTime.now()).toMillis();
-			log.info("  Telemetry processed successfully in {} ms (commands: {})", processingTimeMs,
+			log.info("Telemetry processed successfully in {} ms (commands: {})", processingTimeMs,
 					encodedCommands.size());
 
 			return response;
 
 		} catch (Exception e) {
-			log.error("  Error processing telemetry", e);
+			log.error("Error processing telemetry", e);
 			throw new DecodingException("Failed to process telemetry: " + e.getMessage(), e);
 		}
 	}
@@ -258,11 +258,11 @@ public class TelemetryService {
 			// Limita il numero di comandi per risposta
 			List<CommandEntity> commandsToSend = pendingCommands.stream().limit(maxCommandsPerResponse).toList();
 
-			log.debug("   Encoding {} commands for device type: {}", commandsToSend.size(), deviceType);
+			log.debug("Encoding {} commands for device type: {}", commandsToSend.size(), deviceType);
 
 			// Seleziona l'encoder appropriato
 			DeviceEncoder encoder = encoderFactory.getEncoder(deviceType);
-			log.debug("   Selected encoder: {}", encoder.getEncoderName());
+			log.debug("Selected encoder: {}", encoder.getEncoderName());
 
 			// Converti CommandEntity → DeviceCommand
 			List<DeviceCommand> deviceCommands = commandsToSend.stream().map(this::toDeviceCommand).toList();
@@ -270,7 +270,7 @@ public class TelemetryService {
 			// Codifica i comandi
 			List<TelemetryResponse.EncodedCommand> encodedCommands = encoder.encode(deviceCommands);
 
-			log.info("   Encoded {} commands successfully", encodedCommands.size());
+			log.info("Encoded {} commands successfully", encodedCommands.size());
 
 			return encodedCommands;
 
@@ -295,7 +295,7 @@ public class TelemetryService {
 				Map<String, Object> params = objectMapper.readValue(entity.getCommandParamsJson(), Map.class);
 				command.setParameters(params);
 			} catch (Exception e) {
-				log.warn("  Failed to parse command params for command {}: {}", entity.getId(), e.getMessage());
+				log.warn("Failed to parse command params for command {}: {}", entity.getId(), e.getMessage());
 			}
 		}
 

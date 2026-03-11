@@ -70,7 +70,7 @@ public class TcpSocketServer implements CommandLineRunner {
 
 				int availablePermits = connectionLimiter.availablePermits();
 				if (availablePermits < properties.getMaxConnections() * 0.1) {
-					log.warn(" Connection limiter running low: {}/{} permits available",
+					log.warn("Connection limiter running low: {}/{} permits available",
 							availablePermits, properties.getMaxConnections());
 				}
 

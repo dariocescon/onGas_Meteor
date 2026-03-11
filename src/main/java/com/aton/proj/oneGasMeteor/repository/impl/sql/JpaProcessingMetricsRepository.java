@@ -13,7 +13,7 @@ import com.aton.proj.oneGasMeteor.entity.ProcessingMetricsEntity;
 import com.aton.proj.oneGasMeteor.repository.ProcessingMetricsRepository;
 
 /**
- * Implementazione SQL Server per le metriche di performance.
+ * Implementazione SQL per le metriche di performance.
  * Attivo solo quando metrics.enabled=true E database.type è JPA-based (sqlserver/timescaledb).
  */
 @Repository
@@ -27,18 +27,18 @@ public class JpaProcessingMetricsRepository implements ProcessingMetricsReposito
 
 	public JpaProcessingMetricsRepository(ProcessingMetricsJpaRepository jpaRepository) {
 		this.jpaRepository = jpaRepository;
-		log.info(" SqlServerProcessingMetricsRepository initialized");
+		log.info("JpaProcessingMetricsRepository initialized");
 	}
 
 	@Override
 	public ProcessingMetricsEntity save(ProcessingMetricsEntity entity) {
 		try {
 			ProcessingMetricsEntity saved = jpaRepository.save(entity);
-			log.debug(" Saved processing metrics: id={}, deviceId={}, totalMs={}",
+			log.debug("Saved processing metrics: id={}, deviceId={}, totalMs={}",
 					saved.getId(), saved.getDeviceId(), saved.getTotalProcessingTimeMs());
 			return saved;
 		} catch (Exception e) {
-			log.error(" Failed to save processing metrics for device: {}", entity.getDeviceId(), e);
+			log.error("Failed to save processing metrics for device: {}", entity.getDeviceId(), e);
 			throw new RuntimeException("Failed to save processing metrics", e);
 		}
 	}
@@ -47,6 +47,6 @@ public class JpaProcessingMetricsRepository implements ProcessingMetricsReposito
 	@Transactional
 	public void deleteOlderThan(LocalDateTime threshold) {
 		int deleted = jpaRepository.deleteByReceivedAtBefore(threshold);
-		log.info("  Deleted {} old processing metrics records before {}", deleted, threshold);
+		log.info("Deleted {} old processing metrics records before {}", deleted, threshold);
 	}
 }

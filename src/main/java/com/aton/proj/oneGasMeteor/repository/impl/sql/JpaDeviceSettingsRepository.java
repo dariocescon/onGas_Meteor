@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Implementazione SQL Server per DeviceSettingsRepository
+ * Implementazione SQL per DeviceSettingsRepository
  */
 @Repository
 @ConditionalOnJpaDatabase
@@ -28,7 +28,7 @@ public class JpaDeviceSettingsRepository implements DeviceSettingsRepository {
     public JpaDeviceSettingsRepository(DeviceSettingsJpaRepository jpaRepository, ObjectMapper objectMapper) {
         this.jpaRepository = jpaRepository;
         this.objectMapper = objectMapper;
-        log.info(" SqlServerDeviceSettingsRepository initialized");
+        log.info("JpaDeviceSettingsRepository initialized");
     }
 
     @Override
@@ -37,12 +37,12 @@ public class JpaDeviceSettingsRepository implements DeviceSettingsRepository {
             DeviceSettingsEntity entity = buildEntity(settings, rawMessage);
 
             DeviceSettingsEntity saved = jpaRepository.save(entity);
-            log.debug(" Saved device settings: id={}, deviceId={}", saved.getId(), settings.getDeviceId());
+            log.debug("Saved device settings: id={}, deviceId={}", saved.getId(), settings.getDeviceId());
 
             return saved;
 
         } catch (Exception e) {
-            log.error(" Failed to save device settings for device: {}", settings.getDeviceId(), e);
+            log.error("Failed to save device settings for device: {}", settings.getDeviceId(), e);
             throw new RuntimeException("Failed to save device settings", e);
         }
     }
@@ -63,7 +63,7 @@ public class JpaDeviceSettingsRepository implements DeviceSettingsRepository {
 
             return entity;
         } catch (Exception e) {
-            log.error(" Failed to build device settings entity for device: {}", settings.getDeviceId(), e);
+            log.error("Failed to build device settings entity for device: {}", settings.getDeviceId(), e);
             throw new RuntimeException("Failed to build device settings entity", e);
         }
     }
@@ -77,6 +77,6 @@ public class JpaDeviceSettingsRepository implements DeviceSettingsRepository {
     @Transactional
     public void deleteOlderThan(LocalDateTime threshold) {
         int deleted = jpaRepository.deleteByReceivedAtBefore(threshold);
-        log.info("  Deleted {} old device settings records before {}", deleted, threshold);
+        log.info("Deleted {} old device settings records before {}", deleted, threshold);
     }
 }

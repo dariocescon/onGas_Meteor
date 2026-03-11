@@ -16,7 +16,7 @@ import com.aton.proj.oneGasMeteor.repository.TelemetryRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Implementazione SQL Server per TelemetryRepository
+ * Implementazione SQL per TelemetryRepository
  */
 @Repository
 @ConditionalOnJpaDatabase
@@ -30,7 +30,7 @@ public class JpaTelemetryRepository implements TelemetryRepository {
 	public JpaTelemetryRepository(TelemetryJpaRepository jpaRepository, ObjectMapper objectMapper) {
 		this.jpaRepository = jpaRepository;
 		this.objectMapper = objectMapper;
-		log.info(" SqlServerTelemetryRepository initialized");
+		log.info("JpaTelemetryRepository initialized");
 	}
 
 	@Override
@@ -39,12 +39,12 @@ public class JpaTelemetryRepository implements TelemetryRepository {
 			TelemetryEntity entity = buildEntity(deviceId, deviceType, rawMessage, decoded);
 
 			TelemetryEntity saved = jpaRepository.save(entity);
-			log.debug(" Saved telemetry: id={}, deviceId={}", saved.getId(), deviceId);
+			log.debug("Saved telemetry: id={}, deviceId={}", saved.getId(), deviceId);
 
 			return saved;
 
 		} catch (Exception e) {
-			log.error(" Failed to save telemetry for device: {}", deviceId, e);
+			log.error("Failed to save telemetry for device: {}", deviceId, e);
 			throw new RuntimeException("Failed to save telemetry", e);
 		}
 	}
@@ -70,7 +70,7 @@ public class JpaTelemetryRepository implements TelemetryRepository {
 
 			return entity;
 		} catch (Exception e) {
-			log.error(" Failed to build telemetry entity for device: {}", deviceId, e);
+			log.error("Failed to build telemetry entity for device: {}", deviceId, e);
 			throw new RuntimeException("Failed to build telemetry entity", e);
 		}
 	}
@@ -149,6 +149,6 @@ public class JpaTelemetryRepository implements TelemetryRepository {
 	@Transactional
 	public void deleteOlderThan(LocalDateTime threshold) {
 		int deleted = jpaRepository.deleteByReceivedAtBefore(threshold);
-		log.info("  Deleted {} old telemetry records before {}", deleted, threshold);
+		log.info("Deleted {} old telemetry records before {}", deleted, threshold);
 	}
 }

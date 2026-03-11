@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Implementazione SQL Server per DeviceStatisticsRepository
+ * Implementazione SQL per DeviceStatisticsRepository
  */
 @Repository
 @ConditionalOnJpaDatabase
@@ -25,7 +25,7 @@ public class JpaDeviceStatisticsRepository implements DeviceStatisticsRepository
 
     public JpaDeviceStatisticsRepository(DeviceStatisticsJpaRepository jpaRepository) {
         this.jpaRepository = jpaRepository;
-        log.info(" SqlServerDeviceStatisticsRepository initialized");
+        log.info("JpaDeviceStatisticsRepository initialized");
     }
 
     @Override
@@ -34,12 +34,12 @@ public class JpaDeviceStatisticsRepository implements DeviceStatisticsRepository
             DeviceStatisticsEntity entity = buildEntity(stats, rawMessage);
 
             DeviceStatisticsEntity saved = jpaRepository.save(entity);
-            log.debug(" Saved device statistics: id={}, deviceId={}", saved.getId(), stats.getDeviceId());
+            log.debug("Saved device statistics: id={}, deviceId={}", saved.getId(), stats.getDeviceId());
 
             return saved;
 
         } catch (Exception e) {
-            log.error(" Failed to save device statistics for device: {}", stats.getDeviceId(), e);
+            log.error("Failed to save device statistics for device: {}", stats.getDeviceId(), e);
             throw new RuntimeException("Failed to save device statistics", e);
         }
     }
@@ -82,6 +82,6 @@ public class JpaDeviceStatisticsRepository implements DeviceStatisticsRepository
     @Transactional
     public void deleteOlderThan(LocalDateTime threshold) {
         int deleted = jpaRepository.deleteByReceivedAtBefore(threshold);
-        log.info("  Deleted {} old device statistics records before {}", deleted, threshold);
+        log.info("Deleted {} old device statistics records before {}", deleted, threshold);
     }
 }

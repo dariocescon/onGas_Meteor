@@ -38,14 +38,14 @@ public class InfluxDBProcessingMetricsRepository implements ProcessingMetricsRep
         this.writeApi = writeApi;
         this.bucket = properties.bucket();
         this.org = properties.org();
-        log.info("InfluxDBProcessingMetricsRepository initialized");
+        log.debug("InfluxDBProcessingMetricsRepository initialized");
     }
 
     @Override
     public ProcessingMetricsEntity save(ProcessingMetricsEntity entity) {
         try {
             writeApi.writePoint(InfluxDBPointMapper.toPoint(entity));
-            log.debug("Saved processing metrics to InfluxDB: deviceId={}, totalMs={}",
+            log.trace("Saved processing metrics to InfluxDB: deviceId={}, totalMs={}",
                     entity.getDeviceId(), entity.getTotalProcessingTimeMs());
             return entity;
         } catch (Exception e) {

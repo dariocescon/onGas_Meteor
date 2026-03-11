@@ -1292,58 +1292,74 @@ public class MioNuovoEncoder implements DeviceEncoder {
 
 La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 
+### Riepilogo test (237 totali, 1 skipped)
+
+| Test Class | Package | Count |
+|---|---|---:|
+| DecoderFactoryTest | decoder/ | 1 |
+| TekMessageDecoderTest | decoder/ | 36 |
+| TekMessageDecoderMeasurementTest | decoder/ | 25 |
+| MessageTypeParserTest | decoder/ | 11 |
+| EncoderFactoryTest | encoder/ | 9 |
+| Tek822EncoderTest | encoder/impl/ | 56 |
+| CommandServiceTest | service/ | 24 |
+| ControllerUtilsTest | utils/ | 22 |
+| ProcessingContextTest | model/ | 12 |
+| MessageType16ResponseTest | model/ | 7 |
+| MessageType17ResponseTest | model/ | 17 |
+| FluxQueryHelperTest | repository/impl/influxdb/ | 9 |
+| InfluxDBPointMapperTest | repository/impl/influxdb/ | 8 |
+| **Totale** | | **237** |
+
 ### Test esistenti
 
-#### `decoder/DecoderFactoryTest`
+#### `decoder/DecoderFactoryTest` (1 test)
 - Verifica che `DecoderFactory` selezioni il decoder corretto in base al payload
 - Testa la selezione di `Tek822Decoder` per payload con product type noti
 - Testa il fallback a `UnknownDeviceDecoder` per product type sconosciuti
 
-#### `decoder/TekMessageDecoderTest`
+#### `decoder/TekMessageDecoderTest` (36 test)
 - Test decodifica del **product type** (byte[0]) per tutti i 14 tipi supportati
 - Test decodifica delle **versioni** hardware e firmware (byte[1], byte[2])
 - Test decodifica dell'**IMEI** (byte[7..14], BCD packed)
 - Test decodifica **signal strength** (RSSI vs CSQ per diversi product types)
 - Test decodifica **battery status** (voltage vs percentage per diversi product types)
 
-#### `decoder/TekMessageDecoderMeasurementTest`
+#### `decoder/TekMessageDecoderMeasurementTest` (25 test)
 - Test decodifica delle **misurazioni** (msgType 4/8/9)
 - Test calcolo timestamp con gestione **midnight crossing** (attraversamento mezzanotte)
 - Test calcolo logger speed per i diversi msgType (4, 8, 9)
 - Test filtraggio misurazioni void (tutti 4 byte a zero)
 
-#### `decoder/MessageTypeParserTest`
+#### `decoder/MessageTypeParserTest` (11 test)
 - Test parsing **msgType 6** (settings): decodifica coppie chiave=valore da payload HEX
 - Test parsing **msgType 16** (ICCID + statistiche): decodifica dati modem
 - Test parsing **msgType 17** (GPS): decodifica coordinate NMEA, altitudine, velocità, ecc.
 
-#### `encoder/EncoderFactoryTest`
+#### `encoder/EncoderFactoryTest` (9 test)
 - Verifica che `EncoderFactory` selezioni `Tek822Encoder` per i 14 device type TEK
 - Testa il fallback a `NoOpEncoder` per device type sconosciuti o null/vuoti
 
-#### `encoder/impl/Tek822EncoderTest`
+#### `encoder/impl/Tek822EncoderTest` (56 test)
 - Test `canEncode()` per tutti i 14 device types supportati
 - Test encoding dei singoli command types (SET_INTERVAL, REBOOT, REQUEST_STATUS, ecc.)
 - Test **auto-append REBOOT** per S-commands
 - Test conversione `asciiToHex()`
 - Test password default `TEK822`
 
-#### `service/CommandServiceTest`
+#### `service/CommandServiceTest` (24 test)
 - Test validazione **deviceType** (deve essere in `device.enabled.types`)
 - Test validazione **commandType** (deve essere uno dei 17 validi)
 - Test validazione **parametri obbligatori** per ogni command type
 - Test rifiuto di parametri mancanti
 
-#### `utils/ControllerUtilsTest`
+#### `utils/ControllerUtilsTest` (22 test)
 - Test `hexToAscii()` con input validi, vuoti e stringa multi-byte
 - Test `hexStringToByteArray()` con input validi e casi limite
 - Test `bytesToHex()` con array di byte
 - Test `concatenateCommands()`: un comando, più comandi (password solo sul primo), lista vuota/null
 
-#### `OneGasMeteorApplicationTests`
-- Test di avvio del contesto Spring (smoke test)
-
-#### `model/ProcessingContextTest`
+#### `model/ProcessingContextTest` (12 test)
 - Test creazione `ProcessingContext` con indirizzo client
 - Test metodi di timing (`startRead/endRead`, `startDecode/endDecode`, ecc.)
 - Test `complete(success, errorMessage)` per successo e errore
@@ -1353,23 +1369,33 @@ La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 - Test gestione valori batteria non validi (no eccezione, campo null)
 - Test priorità CSQ su RSSI per `signalStrength`
 
-#### `model/MessageType16ResponseTest`
+#### `model/MessageType16ResponseTest` (7 test)
 - Test inizializzazione campi di `MessageType16Response`
 - Test `calculateDerivedFields()`: calcolo di `averageSendTime`, `averageRssi`, `deliverySuccessRate`
 - Test gestione divisione per zero (messageCount o rssiValidCount = 0)
 
-#### `model/MessageType17ResponseTest`
+#### `model/MessageType17ResponseTest` (17 test)
 - Test conversione coordinate GPS dal formato NMEA (`ddmm.mmmm`) ai gradi decimali
 - Test `setLatitudeRaw()`/`setLongitudeRaw()` con auto-conversione
 - Test gestione coordinate non valide (GPS fix non disponibile)
 - Test generazione `getGoogleMapsLink()`
 
+#### `repository/impl/influxdb/FluxQueryHelperTest` (9 test)
+- Test costruzione query Flux per `byDeviceId()`, `byDeviceIdAndDateRange()`, `byImei()`, `byDeviceType()`
+- Test query `countByDeviceId()`
+- Test generazione `deletePredicate()` per cancellazione measurement
+
+#### `repository/impl/influxdb/InfluxDBPointMapperTest` (8 test)
+- Test mapping `TelemetryEntity` → InfluxDB Point (tags e fields)
+- Test mapping `DeviceSettingsEntity`, `DeviceStatisticsEntity`, `DeviceLocationEntity`, `ProcessingMetricsEntity` → Point
+- Test gestione campi null (skip automatico dei field nulli)
+
 ### Eseguire i test
 
 ```bash
-./mvnw test
-./mvnw test -pl . -Dtest=Tek822EncoderTest
-./mvnw test -pl . -Dtest=TekMessageDecoderTest,TekMessageDecoderMeasurementTest
+mvn test
+mvn test -pl . -Dtest=Tek822EncoderTest
+mvn test -pl . -Dtest=TekMessageDecoderTest,TekMessageDecoderMeasurementTest
 ```
 
 ---
@@ -1383,13 +1409,13 @@ La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 | Requisito | Versione minima |
 |-----------|----------------|
 | Java | 21 |
-| Maven | incluso (wrapper `./mvnw`) |
+| Maven | globale (`mvn`) oppure wrapper (`./mvnw`) |
 | SQL Server | 2017+ (o Azure SQL) |
 
 ### Compilazione
 
 ```bash
-./mvnw clean package
+mvn clean package
 ```
 
 ### Esecuzione
@@ -1398,7 +1424,7 @@ La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 # Con variabili d'ambiente
 export SQL_DB_USERNAME=myuser
 export SQL_DB_PASSWORD=mypassword
-./mvnw spring-boot:run
+mvn spring-boot:run
 
 # Oppure con jar
 java -jar target/oneGasMeteor-*.jar \
@@ -1409,7 +1435,7 @@ java -jar target/oneGasMeteor-*.jar \
 ### Override delle porte
 
 ```bash
-./mvnw spring-boot:run \
+mvn spring-boot:run \
   -Dspring-boot.run.jvmArguments="\
     -DONE_GAS_METEOR_SERVER_PORT=9081 \
     -DONE_GAS_METEOR_TCP_SERVER_PORT=9091"
@@ -1419,13 +1445,13 @@ java -jar target/oneGasMeteor-*.jar \
 
 ```bash
 # Tutti i test
-./mvnw test
+mvn test
 
 # Test specifico
-./mvnw test -Dtest=Tek822EncoderTest
+mvn test -Dtest=Tek822EncoderTest
 
 # Skip test
-./mvnw clean package -DskipTests
+mvn clean package -DskipTests
 ```
 
 ### Build Docker (esempio)
