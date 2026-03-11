@@ -906,6 +906,532 @@ Crea un nuovo comando da inviare al device.
 
 ---
 
+### Catalogo Comandi Device — Esempi POST
+
+Tutti i comandi vengono inseriti nella tabella `device_commands` tramite `POST /api/commands`.
+
+**Endpoint**: `POST /api/commands`  
+**Content-Type**: `application/json`
+
+**Struttura della richiesta**:
+```json
+{
+  "deviceId": "<IMEI del device — 15 cifre>",
+  "deviceType": "<tipo device>",
+  "commandType": "<tipo comando>",
+  "parameters": { ... }
+}
+```
+
+**Device types supportati**:
+`TEK586`, `TEK733`, `TEK643`, `TEK811`, `TEK822V1`, `TEK733A`, `TEK871`, `TEK811A`, `TEK822V1BTN`, `TEK822V2`, `TEK900`, `TEK880`, `TEK898V2`, `TEK898V1`
+
+**Nota S-commands**: I comandi che modificano registri S (`SET_INTERVAL`, `SET_LISTEN`, `SET_SCHEDULE`, `SET_ALARM_THRESHOLD`, `SET_APN`, `SET_SERVER`) richiedono un reboot per essere applicati. Il sistema appende automaticamente un comando `REBOOT` in coda se non già presente.
+
+---
+
+#### `SET_INTERVAL` (S0)
+
+Configura l'intervallo di acquisizione (logging speed) del device.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `interval` | number | ✅ | — | Velocità di acquisizione in ore (es. 0.25, 0.5, 1, 2, 4, 8) |
+| `samplingPeriod` | integer | ❌ | `1` | Periodo campionamento: `0` = 1 min, `1` = 15 min |
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Formula: `S0 = (128 × samplingPeriod) + (interval × 4)`, espresso in hex
+- È un S-command → il sistema aggiunge automaticamente `REBOOT` in coda
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "SET_INTERVAL",
+  "parameters": {
+    "interval": 4.0,
+    "samplingPeriod": 1
+  }
+}
+```
+**Comando ASCII generato**: `TEK822,S0=90`  
+*(S0 = (128×1) + (4×4) = 144 = 0x90)*
+
+---
+
+#### `SET_LISTEN` (S1)
+
+Configura il tempo di ascolto (listen window) del device dopo ogni trasmissione.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `listenMinutes` | integer | ✅ | — | Minuti di ascolto (deve essere multiplo di 5) |
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Formula: `S1 = listenMinutes / 5`, espresso in hex
+- È un S-command → il sistema aggiunge automaticamente `REBOOT` in coda
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "SET_LISTEN",
+  "parameters": {
+    "listenMinutes": 5
+  }
+}
+```
+**Comando ASCII generato**: `TEK822,S1=01`  
+*(S1 = 5 / 5 = 1 = 0x01)*
+
+---
+
+#### `SET_SCHEDULE` (S2)
+
+Configura lo schedule di trasmissione giornaliero del device.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `schedule` | string | ❌ | `"7F2000"` | Valore hex del registro S2 (3 byte: giorni, orario, frequenza) |
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Il valore di default `7F2000` corrisponde a: tutti i giorni della settimana (0x7F), alle ore 08:00 (0x20 = 32 slot da 15 min), trasmissione singola giornaliera (0x00)
+- È un S-command → il sistema aggiunge automaticamente `REBOOT` in coda
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "SET_SCHEDULE",
+  "parameters": {
+    "schedule": "7F2000"
+  }
+}
+```
+**Comando ASCII generato**: `TEK822,S2=7F2000`
+
+---
+
+#### `REBOOT` (R3=ACTIVE)
+
+Forza il reboot del device e applica le modifiche ai registri S.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Nessun parametro obbligatorio
+- Questo comando viene anche aggiunto automaticamente dal sistema in coda a qualsiasi S-command
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "REBOOT",
+  "parameters": {}
+}
+```
+**Comando ASCII generato**: `TEK822,R3=ACTIVE`
+
+---
+
+#### `REQUEST_STATUS` (R6=02)
+
+Richiede al device l'invio di un messaggio di stato (Message Type 16) contenente ICCID e statistiche.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Nessun parametro obbligatorio
+- La risposta del device è un messaggio di tipo 16 (ICCID + statistiche operative)
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "REQUEST_STATUS",
+  "parameters": {}
+}
+```
+**Comando ASCII generato**: `TEK822,R6=02`
+
+---
+
+#### `SET_ALARM_THRESHOLD` (S4/S5/S6)
+
+Configura la soglia di allarme statico del device.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `threshold` | integer | ✅ | — | Valore soglia (0–1023) |
+| `hysteresis` | integer | ❌ | `10` | Isteresi (0–15) |
+| `enabled` | boolean | ❌ | `true` | Abilita/disabilita l'allarme |
+| `polarity` | boolean | ❌ | `true` | Polarità: `true` = allarme sopra soglia, `false` = sotto soglia |
+| `alarmRegister` | string | ❌ | `"S4"` | Registro destinazione: `"S4"`, `"S5"` o `"S6"` |
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Formula: `S4 = threshold + (hysteresis × 2^10) + (enabled × 2^14) + (polarity × 2^15)`, espresso in hex (4 cifre)
+- È un S-command → il sistema aggiunge automaticamente `REBOOT` in coda
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "SET_ALARM_THRESHOLD",
+  "parameters": {
+    "threshold": 150,
+    "hysteresis": 10,
+    "enabled": true,
+    "polarity": true,
+    "alarmRegister": "S4"
+  }
+}
+```
+**Comando ASCII generato**: `TEK822,S4=E896`  
+*(S4 = 150 + 10×1024 + 1×16384 + 1×32768 = 150 + 10240 + 16384 + 32768 = 59542 = 0xE896)*
+
+---
+
+#### `SHUTDOWN` (R1=80)
+
+Spegne il modem del device e porta il dispositivo in modalità sleep.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Nessun parametro obbligatorio
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "SHUTDOWN",
+  "parameters": {}
+}
+```
+**Comando ASCII generato**: `TEK822,R1=80`
+
+---
+
+#### `SET_RTC` (R2)
+
+Imposta l'orologio in tempo reale (RTC) del device.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `datetime` | string | ✅ | — | Data e ora in formato ISO-8601: `"yyyy-MM-ddTHH:mm:ss"` |
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Il campo `datetime` deve essere un `LocalDateTime` ISO-8601 valido (es. `"2026-03-11T12:30:00"`)
+- Il formato trasmesso al device è `yy/MM/dd:HH/mm/ss`
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "SET_RTC",
+  "parameters": {
+    "datetime": "2026-03-11T12:30:00"
+  }
+}
+```
+**Comando ASCII generato**: `TEK822,R2=26/03/11:12/30/00`
+
+---
+
+#### `DEACTIVATE` (R4=DEACT)
+
+Disattiva gli upload schedulati del device.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Nessun parametro obbligatorio
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "DEACTIVATE",
+  "parameters": {}
+}
+```
+**Comando ASCII generato**: `TEK822,R4=DEACT`
+
+---
+
+#### `CLOSE_TCP` (R6=03)
+
+Forza la chiusura della connessione TCP attiva del device.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Nessun parametro obbligatorio
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "CLOSE_TCP",
+  "parameters": {}
+}
+```
+**Comando ASCII generato**: `TEK822,R6=03`
+
+---
+
+#### `REQUEST_GPS` (R7)
+
+Richiede al device la posizione GPS (Message Type 17).
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `timeout` | integer | ❌ | `60` | Timeout in secondi per l'acquisizione GPS |
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Il timeout viene codificato in hex: `R7 = timeout` (hex)
+- La risposta del device è un messaggio di tipo 17 (coordinate GPS)
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "REQUEST_GPS",
+  "parameters": {
+    "timeout": 60
+  }
+}
+```
+**Comando ASCII generato**: `TEK822,R7=3C`  
+*(timeout 60s = 0x3C)*
+
+---
+
+#### `REQUEST_SETTINGS` (R1=02/04/08)
+
+Richiede al device l'invio della configurazione attuale (Message Type 6).
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `startFrom` | string | ❌ | `"S0"` | Registro da cui iniziare: `"S0"` (R1=02), `"S12"` (R1=04), `"S19"` (R1=08) |
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- `"S0"` → `R1=02`: richiede tutti i registri S0 e successivi
+- `"S12"` → `R1=04`: richiede i registri di connettività (S12 e successivi)
+- `"S19"` → `R1=08`: richiede i registri S19 e successivi
+- La risposta del device è un messaggio di tipo 6
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "REQUEST_SETTINGS",
+  "parameters": {
+    "startFrom": "S0"
+  }
+}
+```
+**Comando ASCII generato**: `TEK822,R1=02`
+
+---
+
+#### `RESET_RTC` (R1=10)
+
+Forza la risincronizzazione dell'orologio RTC al prossimo contatto del device con il server.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Nessun parametro obbligatorio
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "RESET_RTC",
+  "parameters": {}
+}
+```
+**Comando ASCII generato**: `TEK822,R1=10`
+
+---
+
+#### `REQUEST_BUFFER_DATA` (R1=20)
+
+Forza l'invio dei dati bufferizzati nel device (Message Type 8 — ultime 10 misurazioni in formato allarme).
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Nessun parametro obbligatorio
+- La risposta del device è un messaggio di tipo 8 (10 misurazioni recenti)
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "REQUEST_BUFFER_DATA",
+  "parameters": {}
+}
+```
+**Comando ASCII generato**: `TEK822,R1=20`
+
+---
+
+#### `REQUEST_DIAGNOSTIC_DATA` (R6=01)
+
+Richiede al device i dati diagnostici: segnale radio, tensione batteria, temperatura interna.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- Nessun parametro obbligatorio
+- La risposta del device è un messaggio di tipo 2 (dati diagnostici)
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "REQUEST_DIAGNOSTIC_DATA",
+  "parameters": {}
+}
+```
+**Comando ASCII generato**: `TEK822,R6=01`
+
+---
+
+#### `SET_APN` (S12/S13/S14)
+
+Configura i parametri APN per la connettività dati del device.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `apn` | string | ✅ | — | Nome APN (es. `"internet"`, `"iot.provider.com"`) |
+| `username` | string | ❌ | `""` | Username APN (lasciare vuoto se non richiesto) |
+| `apnPassword` | string | ❌ | `""` | Password APN (lasciare vuoto se non richiesto) |
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- È un S-command → il sistema aggiunge automaticamente `REBOOT` in coda
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "SET_APN",
+  "parameters": {
+    "apn": "internet",
+    "username": "",
+    "apnPassword": ""
+  }
+}
+```
+**Comando ASCII generato**: `TEK822,S12=internet,S13=,S14=`
+
+---
+
+#### `SET_SERVER` (S15/S16)
+
+Configura l'indirizzo IP e la porta del server di destinazione per le trasmissioni del device.
+
+**Parametri**:
+
+| Parametro | Tipo | Obbl. | Default | Descrizione |
+|---|---|---|---|---|
+| `serverIp` | string | ✅ | — | Indirizzo IP del server (es. `"84.51.250.104"`) |
+| `serverPort` | string | ✅ | — | Porta TCP del server (es. `"9000"`) |
+| `password` | string | ❌ | `"TEK822"` | Password dispositivo |
+
+**Regole**:
+- È un S-command → il sistema aggiunge automaticamente `REBOOT` in coda
+
+**Esempio POST**:
+```json
+{
+  "deviceId": "123456789012345",
+  "deviceType": "TEK822V2",
+  "commandType": "SET_SERVER",
+  "parameters": {
+    "serverIp": "84.51.250.104",
+    "serverPort": "9000"
+  }
+}
+```
+**Comando ASCII generato**: `TEK822,S15=84.51.250.104,S16=9000`
+
+---
+
 ### `GET /api/commands/{id}`
 
 Dettaglio di un comando specifico.
