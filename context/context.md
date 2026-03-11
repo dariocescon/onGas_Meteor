@@ -29,7 +29,7 @@
 ## 1. Panoramica del Progetto
 
 | Campo           | Valore                                      |
-|-----------------|---------------------------------------------|
+| --------------- | ------------------------------------------- |
 | **Nome**        | onGas_Meteor                                |
 | **Descrizione** | Server TCP + REST che riceve messaggi binari da dispositivi IoT per il monitoraggio gas (famiglia Tekelek TEK822), li decodifica, li persiste nel DB e restituisce comandi di risposta codificati |
 | **GroupId Maven** | `com.aton.proj`                           |
@@ -100,7 +100,7 @@ Il server:
 ### Descrizione dei layer
 
 | Layer | Responsabilità |
-|-------|---------------|
+| ----- | -------------- |
 | **Transport** | Accetta connessioni TCP (Java 21 virtual threads) con Semaphore per limitare le connessioni concorrenti e backlog configurabile sul `ServerSocket`; espone richieste HTTP REST |
 | **Service** | Orchestrazione del flusso: decodifica → persistenza → encoding comandi |
 | **Decoder** | Trasforma il payload binario in oggetti Java (`DecodedMessage`) |
@@ -327,7 +327,7 @@ String getEncoderName();
 ### `model/`
 
 | Classe | Descrizione |
-|--------|-------------|
+| ------ | ----------- |
 | `TelemetryMessage` | Immutabile. Contiene `payload` (byte[]), `hexData`, `receivedAt`, `sourceAddress`, `serverTimeInMs` |
 | `DecodedMessage` | Risultato decodifica. Inner classes: `UnitInfo`, `UniqueIdentifier`, `ContactReason`, `AlarmStatus`, `LastReset`, `SignalStrength`, `DiagnosticInfo`, `BatteryStatus`, `UnitSetup`, `List<MeasurementData>` |
 | `DeviceCommand` | Comando da inviare. Campi: `id`, `deviceId`, `deviceType`, `commandType`, `parameters` (Map), `encodedCommandASCII`, `encodedCommandHEX` |
@@ -342,7 +342,7 @@ String getEncoderName();
 ### `entity/`
 
 | Classe | Tabella DB |
-|--------|-----------|
+| ------ | ---------- |
 | `TelemetryEntity` | `TELEMETRY_DATA` |
 | `CommandEntity` | `DEVICE_COMMANDS` — inner enum `CommandStatus` (PENDING, SENT, DELIVERED, FAILED, EXPIRED) |
 | `DeviceSettingsEntity` | `DEVICE_SETTINGS` |
@@ -385,7 +385,7 @@ String getEncoderName();
 ### `dto/`
 
 | Classe | Uso |
-|--------|-----|
+| ------ | --- |
 | `CommandCreateRequest` | Body della POST `/api/commands` |
 | `CommandResponse` | Risposta della GET `/api/commands/{id}` |
 
@@ -394,7 +394,7 @@ String getEncoderName();
 ### `config/`
 
 | Classe | Funzione |
-|--------|---------|
+| ------ | -------- |
 | `SchedulerConfig` | `@EnableScheduling` per il cleanup schedulato |
 | `tcp/TcpServerProperties` | Binding `@ConfigurationProperties(prefix = "tcp.server")` con: `port` (default 8091), `timeout` (default 10000 ms), `maxConnections` (default 10000), `backlog` (default 1024) |
 | `ConditionalOnJpaDatabase` | Meta-annotazione: attiva bean solo quando `database.type` è `sqlserver`, `postgresql`, `h2mem` o `timescaledb`. |
@@ -423,7 +423,7 @@ String getEncoderName();
 ### `exception/`
 
 | Classe | Uso |
-|--------|-----|
+| ------ | --- |
 | `DecodingException` | Errore durante la decodifica del payload |
 | `EncodingException` | Errore durante l'encoding di un comando |
 | `UnknownDeviceException` | Device type non riconosciuto |
@@ -463,7 +463,7 @@ Offset  Len  Campo
 ### Contact Reason — byte[3] (bitmap)
 
 | Bit | Maschera | Campo         |
-|-----|----------|---------------|
+| --- | -------- | ------------- |
 | 0   | 0x01     | Scheduled     |
 | 1   | 0x02     | Alarm         |
 | 2   | 0x04     | Server Request|
@@ -476,7 +476,7 @@ Offset  Len  Campo
 ### Alarm Status — byte[4] (bitmap)
 
 | Bit | Maschera | Campo    |
-|-----|----------|----------|
+| --- | -------- | -------- |
 | 0   | 0x01     | Static1  |
 | 1   | 0x02     | Static2  |
 | 2   | 0x04     | Static3  |
@@ -486,28 +486,28 @@ Offset  Len  Campo
 ### Last Reset — byte[4] (bitmap)
 
 | Bit | Maschera | Campo    |
-|-----|----------|----------|
+| --- | -------- | -------- |
 | 5   | 0x20     | Watchdog |
 | 6   | 0x40     | Brownout |
 
 ### Signal Strength — byte[5]
 
 | Product Types | Campo |
-|---------------|-------|
+| ------------- | ----- |
 | TEK586, TEK733, TEK643, TEK733A (codes 2,5,6,9) | RSSI |
 | TEK811, TEK822V1, TEK871, TEK811A, TEK822V1BTN, TEK822V2, TEK900, TEK880, TEK898V2, TEK898V1 (codes 7,8,10,11,23,24,25,26,27,28) | CSQ |
 
 ### Battery Status — byte[6] (bits 4:0)
 
 | Product Types | Formula |
-|---------------|---------|
+| ------------- | ------- |
 | TEK643, TEK822V1, TEK871, TEK822V1BTN, TEK822V2, TEK898V2, TEK898V1 (codes 6,8,10,23,24,27,28) | `percentage = (value * 100.0) / 31.0` |
 | TEK586, TEK733, TEK733A, TEK811, TEK811A, TEK900, TEK880 (codes 2,5,9,7,11,25,26) | `voltage = (value + 30.0) / 10.0` V |
 
 ### Diagnostic Info — byte[6]
 
 | Bit | Maschera | Campo      |
-|-----|----------|------------|
+| --- | -------- | ---------- |
 | 5   | 0x20     | RTC Set    |
 | 6   | 0x40     | LTE Active |
 
@@ -531,7 +531,7 @@ msgType = payload[15] & 0x3F   // 6 bit meno significativi
 ### Tipi di messaggio
 
 | Tipo | Descrizione | Tabella DB |
-|------|-------------|-----------|
+| ---- | ----------- | ---------- |
 | 4    | Telemetria standard (Logger Speed configurabile) | TELEMETRY_DATA |
 | 8    | Telemetria alarm (buffer 10 misurazioni a 1 sec o 15 min) | TELEMETRY_DATA |
 | 9    | Telemetria scheduled (1 min o 15 min) | TELEMETRY_DATA |
@@ -559,7 +559,7 @@ Offset (relativo all'inizio misurazione)  Campo
 ### Calcolo Logger Speed (msgType 4/8/9)
 
 | msgType | Condizione | Logger Speed |
-|---------|-----------|--------------|
+| ------- | ---------- | ------------ |
 | 8 | ContactReason.manual == true | 1 secondo |
 | 8 | byte[23] & 0x80 == 0 | 1 minuto |
 | 8 | byte[23] & 0x80 != 0 | 15 minuti |
@@ -591,7 +591,7 @@ Il `Tek822Encoder` codifica i comandi in stringhe ASCII nel formato `<PASSWORD>,
 ### 17 Command Types
 
 | Command Type | Registro | Formato ASCII | Note |
-|---|---|---|---|
+| ------------ | -------- | ------------- | ---- |
 | `SET_INTERVAL` | S0 | `TEK822,S0=XX` | `XX = (128 * samplingPeriod) + (interval * 4)` hex |
 | `SET_LISTEN` | S1 | `TEK822,S1=XX` | `XX = listenMinutes / 5` |
 | `SET_SCHEDULE` | S2 | `TEK822,S2=7F2000` | Default: tutti i giorni, ore 8:00 |
@@ -655,7 +655,7 @@ TELEMETRY_DATA ||--o{ DEVICE_COMMANDS : "device_id"
 ### Tabella: TELEMETRY_DATA
 
 | Colonna | Tipo SQL Server | Note |
-|---------|----------------|------|
+| ------- | --------------- | ---- |
 | `id` | `bigint` PK | Auto-increment |
 | `device_id` | `nvarchar` | IMEI del device |
 | `device_type` | `nvarchar` | Es. "TEK822V1" |
@@ -680,7 +680,7 @@ TELEMETRY_DATA ||--o{ DEVICE_COMMANDS : "device_id"
 ### Tabella: DEVICE_COMMANDS
 
 | Colonna | Tipo SQL Server | Note |
-|---------|----------------|------|
+| ------- | --------------- | ---- |
 | `id` | `bigint` PK | Auto-increment |
 | `device_id` | `nvarchar` FK | Riferimento a TELEMETRY_DATA.device_id |
 | `device_type` | `nvarchar` | |
@@ -708,7 +708,7 @@ PENDING → EXPIRED
 ### Tabella: DEVICE_SETTINGS
 
 | Colonna | Tipo SQL Server | Note |
-|---------|----------------|------|
+| ------- | --------------- | ---- |
 | `id` | `bigint` PK | |
 | `device_id` | `nvarchar` | |
 | `device_type` | `nvarchar` | |
@@ -721,7 +721,7 @@ PENDING → EXPIRED
 ### Tabella: DEVICE_STATISTICS
 
 | Colonna | Tipo SQL Server | Note |
-|---------|----------------|------|
+| ------- | --------------- | ---- |
 | `id` | `bigint` PK | |
 | `device_id` | `nvarchar` | |
 | `device_type` | `nvarchar` | |
@@ -748,7 +748,7 @@ PENDING → EXPIRED
 ### Tabella: DEVICE_LOCATIONS
 
 | Colonna | Tipo SQL Server | Note |
-|---------|----------------|------|
+| ------- | --------------- | ---- |
 | `id` | `bigint` PK | |
 | `device_id` | `nvarchar` | |
 | `device_type` | `nvarchar` | |
@@ -776,7 +776,7 @@ PENDING → EXPIRED
 ### Tabella: PROCESSING_METRICS
 
 | Colonna | Tipo SQL Server | Note |
-|---------|----------------|------|
+| ------- | --------------- | ---- |
 | `id` | `bigint` PK | Auto-increment |
 | `device_id` | `nvarchar(50)` | IMEI del device |
 | `device_type` | `nvarchar(50)` | Es. "TEK822V1" |
@@ -826,7 +826,7 @@ Lo script include sezioni commentate per abilitare facoltativamente:
 ### Script di migrazione SQL Server
 
 | File | Contenuto |
-|------|-----------|
+| ---- | --------- |
 | `db-migration-message-types-6-16-17.sql` | Aggiunge le tabelle `DEVICE_SETTINGS`, `DEVICE_STATISTICS`, `DEVICE_LOCATIONS` a un database SQL Server esistente |
 | `db-migration-processing-metrics.sql` | Aggiunge la tabella `PROCESSING_METRICS` a un database SQL Server esistente |
 
@@ -937,7 +937,7 @@ Configura l'intervallo di acquisizione (logging speed) del device.
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `interval` | number | ✅ | — | Velocità di acquisizione in ore (es. 0.25, 0.5, 1, 2, 4, 8) |
 | `samplingPeriod` | integer | ❌ | `1` | Periodo campionamento: `0` = 1 min, `1` = 15 min |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
@@ -970,7 +970,7 @@ Configura il tempo di ascolto (listen window) del device dopo ogni trasmissione.
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `listenMinutes` | integer | ✅ | — | Minuti di ascolto (deve essere multiplo di 5) |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
@@ -1001,7 +1001,7 @@ Configura lo schedule di trasmissione giornaliero del device.
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `schedule` | string | ❌ | `"7F2000"` | Valore hex del registro S2 (3 byte: giorni, orario, frequenza) |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
@@ -1031,7 +1031,7 @@ Forza il reboot del device e applica le modifiche ai registri S.
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
 **Regole**:
@@ -1058,7 +1058,7 @@ Richiede al device l'invio di un messaggio di stato (Message Type 16) contenente
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
 **Regole**:
@@ -1085,7 +1085,7 @@ Configura la soglia di allarme statico del device.
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `threshold` | integer | ✅ | — | Valore soglia (0–1023) |
 | `hysteresis` | integer | ❌ | `10` | Isteresi (0–15) |
 | `enabled` | boolean | ❌ | `true` | Abilita/disabilita l'allarme |
@@ -1124,7 +1124,7 @@ Spegne il modem del device e porta il dispositivo in modalità sleep.
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
 **Regole**:
@@ -1150,7 +1150,7 @@ Imposta l'orologio in tempo reale (RTC) del device.
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `datetime` | string | ✅ | — | Data e ora in formato ISO-8601: `"yyyy-MM-ddTHH:mm:ss"` |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
@@ -1180,7 +1180,7 @@ Disattiva gli upload schedulati del device.
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
 **Regole**:
@@ -1206,7 +1206,7 @@ Forza la chiusura della connessione TCP attiva del device.
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
 **Regole**:
@@ -1232,7 +1232,7 @@ Richiede al device la posizione GPS (Message Type 17).
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `timeout` | integer | ❌ | `60` | Timeout in secondi per l'acquisizione GPS |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
@@ -1263,7 +1263,7 @@ Richiede al device l'invio della configurazione attuale (Message Type 6).
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `startFrom` | string | ❌ | `"S0"` | Registro da cui iniziare: `"S0"` (R1=02), `"S12"` (R1=04), `"S19"` (R1=08) |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
@@ -1295,7 +1295,7 @@ Forza la risincronizzazione dell'orologio RTC al prossimo contatto del device co
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
 **Regole**:
@@ -1321,7 +1321,7 @@ Forza l'invio dei dati bufferizzati nel device (Message Type 8 — ultime 10 mis
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
 **Regole**:
@@ -1348,7 +1348,7 @@ Richiede al device i dati diagnostici: segnale radio, tensione batteria, tempera
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
 **Regole**:
@@ -1375,7 +1375,7 @@ Configura i parametri APN per la connettività dati del device.
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `apn` | string | ✅ | — | Nome APN (es. `"internet"`, `"iot.provider.com"`) |
 | `username` | string | ❌ | `""` | Username APN (lasciare vuoto se non richiesto) |
 | `apnPassword` | string | ❌ | `""` | Password APN (lasciare vuoto se non richiesto) |
@@ -1408,7 +1408,7 @@ Configura l'indirizzo IP e la porta del server di destinazione per le trasmissio
 **Parametri**:
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
-|---|---|---|---|---|
+| --------- | ---- | ----- | ------- | ----------- |
 | `serverIp` | string | ✅ | — | Indirizzo IP del server (es. `"84.51.250.104"`) |
 | `serverPort` | string | ✅ | — | Porta TCP del server (es. `"9000"`) |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
@@ -1522,7 +1522,7 @@ Stato del servizio cleanup.
 ### `application.properties` — tutti i parametri
 
 | Property | Default / Valore | Variabile d'ambiente | Descrizione |
-|----------|-----------------|---------------------|-------------|
+| -------- | ---------------- | -------------------- | ----------- |
 | `spring.application.name` | `oneGas_Meteor` | — | Nome applicazione |
 | `server.port` | `8081` | `ONE_GAS_METEOR_SERVER_PORT` | Porta HTTP REST |
 | `tcp.server.port` | `8091` | `ONE_GAS_METEOR_TCP_SERVER_PORT` | Porta server TCP |
@@ -1635,7 +1635,7 @@ batch.insert.interval-ms=2000
 **Measurements InfluxDB**:
 
 | Measurement | Tags | Fields principali |
-|---|---|---|
+| ----------- | ---- | ----------------- |
 | `telemetry` | device_id, device_type, message_type | raw_message, decoded_data, imei, battery_voltage, battery_percentage, signal_strength, measurement_count, firmware_version |
 | `device_settings` | device_id, device_type | raw_message, settings_json |
 | `device_statistics` | device_id, device_type | raw_message, iccid, energy_used, min/max_temperature, message_count, rssi_total, delivery_fail_count, ecc. |
@@ -1662,7 +1662,7 @@ docker compose -f docker-compose-influxdb.yml up -d
 ### Variabili d'ambiente richieste
 
 | Variabile | Tipo | Note |
-|-----------|------|------|
+| --------- | ---- | ---- |
 | `SQL_DB_USERNAME` | Obbligatoria | Username per SQL Server/PostgreSQL |
 | `SQL_DB_PASSWORD` | Obbligatoria | Password per SQL Server/PostgreSQL |
 | `INFLUXDB_URL` | Opzionale | Default http://localhost:8086 |
@@ -1679,7 +1679,7 @@ docker compose -f docker-compose-influxdb.yml up -d
 La famiglia Tekelek TEK822 e dispositivi compatibili. Il product type è codificato in **byte[0]** del payload binario.
 
 | Codice (byte[0]) | Device Type | Signal | Battery |
-|:-:|---|---|---|
+| :--------------: | ----------- | ------ | ------- |
 | 2 | TEK586 | RSSI | Voltage |
 | 5 | TEK733 | RSSI | Voltage |
 | 6 | TEK643 | RSSI | Percentage |
@@ -1698,8 +1698,6 @@ La famiglia Tekelek TEK822 e dispositivi compatibili. Il product type è codific
 > **Nota**: I device types abilitati per l'invio di comandi sono configurati in `device.enabled.types` (default: `TEK822V1,TEK822V2,TEK586`). Tutti i 14 tipi sono supportati per la decodifica dei messaggi in entrata.
 
 ---
-
-<a id="11-pattern-di-estensibilità"></a>
 
 ## 11. Pattern di Estensibilità
 
@@ -1821,7 +1819,7 @@ La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 ### Riepilogo test (237 totali, 1 skipped)
 
 | Test Class | Package | Count |
-|---|---|---:|
+| ---------- | ------- | ----: |
 | DecoderFactoryTest | decoder/ | 1 |
 | TekMessageDecoderTest | decoder/ | 36 |
 | TekMessageDecoderMeasurementTest | decoder/ | 25 |
@@ -1926,14 +1924,12 @@ mvn test -pl . -Dtest=TekMessageDecoderTest,TekMessageDecoderMeasurementTest
 
 ---
 
-<a id="13-build--run"></a>
-
 ## 13. Build & Run
 
 ### Prerequisiti
 
 | Requisito | Versione minima |
-|-----------|----------------|
+| --------- | --------------- |
 | Java | 21 |
 | Maven | globale (`mvn`) oppure wrapper (`./mvnw`) |
 | SQL Server | 2017+ (o Azure SQL) |
@@ -2006,7 +2002,7 @@ Tutti i file di documentazione si trovano nella directory [`docs/`](../docs/) al
 ### Documenti testuali (Mermaid)
 
 | File | Contenuto |
-|------|-----------|
+| ---- | --------- |
 | [`docs/Database schema.txt`](../docs/Database%20schema.txt) | Diagramma ER Mermaid con le 5 tabelle del DB e le loro relazioni e indici |
 | [`docs/Diagramma Architettura a strati Meteor.txt`](../docs/Diagramma%20Architettura%20a%20strati%20Meteor.txt) | Diagramma Mermaid `graph TB` con tutti i layer dell'applicazione |
 | [`docs/Diagramma Pattern di estensibilità Meteor.txt`](../docs/Diagramma%20Pattern%20di%20estensibilità%20Meteor.txt) | Diagramma classi UML Mermaid con le interfacce Decoder/Encoder e le loro implementazioni |
@@ -2015,7 +2011,7 @@ Tutti i file di documentazione si trovano nella directory [`docs/`](../docs/) al
 ### Immagini SVG
 
 | File | Contenuto |
-|------|-----------|
+| ---- | --------- |
 | [`docs/Database schema.svg`](../docs/Database%20schema.svg) | Versione SVG del diagramma ER |
 | [`docs/Diagramma Architettura a strati Meteor.svg`](../docs/Diagramma%20Architettura%20a%20strati%20Meteor.svg) | Versione SVG dell'architettura a strati |
 | [`docs/Diagramma Pattern di estensibilità Meteor.svg`](../docs/Diagramma%20Pattern%20di%20estensibilità%20Meteor.svg) | Versione SVG del pattern di estensibilità |
@@ -2024,14 +2020,14 @@ Tutti i file di documentazione si trovano nella directory [`docs/`](../docs/) al
 ### Manuali e specifiche tecniche (binari)
 
 | File | Contenuto |
-|------|-----------|
+| ---- | --------- |
 | [`docs/9-5988-07 TEK 822 Logger NB-IoT_CAT-M1 User Manual.pdf`](../docs/9-5988-07%20TEK%20822%20Logger%20NB-IoT_CAT-M1%20User%20Manual.pdf) | Manuale utente Tekelek TEK822 NB-IoT/CAT-M1. Contiene: struttura pacchetto binario (sezione 2.2), registri di configurazione S0..S19 (sezione 3.20), comandi R1..R7 (sezione 3.21), protocollo di comunicazione |
 | [`docs/CF-5018-20 cellular configuration and command v1.21.xlsm`](../docs/CF-5018-20%20cellular%20configuration%20and%20command%20v1.21.xlsm) | Excel fornitore con configurazione cellulare e comandi. Sheet "822 CC" con valori di configurazione (es. S2=7F2000), Sheet "Request Commands" con R1=10 (Reset RTC), R1=20 (Buffer Data) |
 
 ### Script SQL (in `src/main/resources/`)
 
 | File | Contenuto |
-|------|-----------|
+| ---- | --------- |
 | [`src/main/resources/db-timescaledb-schema.sql`](../src/main/resources/db-timescaledb-schema.sql) | Schema completo TimescaleDB: crea le 5 tabelle come hypertable con partizionamento su `received_at` (chunk 7 giorni). Include sezioni commentate per retention e compression policy native. |
 | [`src/main/resources/db-migration-message-types-6-16-17.sql`](../src/main/resources/db-migration-message-types-6-16-17.sql) | Script di migrazione SQL Server: aggiunge le tabelle `DEVICE_SETTINGS`, `DEVICE_STATISTICS`, `DEVICE_LOCATIONS` a un database SQL Server esistente. |
 | [`src/main/resources/db-migration-processing-metrics.sql`](../src/main/resources/db-migration-processing-metrics.sql) | Script di migrazione SQL Server: aggiunge la tabella `PROCESSING_METRICS` a un database SQL Server esistente. |
@@ -2078,7 +2074,7 @@ Aggiunto controllo esplicito su `response.getCommands() != null` e sostituito `.
 ### Riepilogo correzioni e aggiunte (v1.1 → v1.5)
 
 | # | Tipo | File/Area | Descrizione |
-|---|------|------|-------------|
+| - | ---- | --------- | ----------- |
 | 1 | 🔴 Bug | `handler/TcpConnectionHandlerReadExactly.java` | Aggiunto null check su `response.getCommands()` nel blocco `finally` (v1.2) |
 | 2 | 🟡 Qualità | `controller/MeteorController.java` | Sostituiti `System.out.println` con logger SLF4J (v1.2) |
 | 3 | 🟢 Feature | `config/ConditionalOnJpaDatabase`, `config/JpaDatabaseCondition` | Nuova meta-annotazione per supportare sia SQL Server che TimescaleDB (v1.3) |
