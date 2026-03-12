@@ -26,7 +26,7 @@
 
 ---
 
-## 1. Panoramica del Progetto
+## <a name="1-panoramica-del-progetto"></a>1. Panoramica del Progetto
 
 | Campo           | Valore                                      |
 | --------------- | ------------------------------------------- |
@@ -53,7 +53,7 @@ Il server:
 
 ---
 
-## 2. Architettura a Strati
+## <a name="2-architettura-a-strati"></a>2. Architettura a Strati
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -110,7 +110,7 @@ Il server:
 
 ---
 
-## 3. Flusso Principale
+## <a name="3-flusso-principale"></a>3. Flusso Principale
 
 ```
 Dispositivo IoT
@@ -178,7 +178,7 @@ Dispositivo IoT riceve risposta
 
 ---
 
-## 4. Componenti e Package
+## <a name="4-componenti-e-package"></a>4. Componenti e Package
 
 ### `server/`
 
@@ -430,7 +430,7 @@ String getEncoderName();
 
 ---
 
-## 5. Protocollo Binario TEK
+## <a name="5-protocollo-binario-tek"></a>5. Protocollo Binario TEK
 
 ### Struttura del messaggio
 
@@ -576,7 +576,7 @@ Se `baseTimestamp - serverTime > 12h` → il device ha misurato il giorno preced
 
 ---
 
-## 6. Encoder e Comandi
+## <a name="6-encoder-e-comandi"></a>6. Encoder e Comandi
 
 ### Descrizione
 
@@ -632,7 +632,7 @@ for (byte b : bytes) {
 
 ---
 
-## 7. Database
+## <a name="7-database"></a>7. Database
 
 ### Panoramica
 
@@ -832,7 +832,7 @@ Lo script include sezioni commentate per abilitare facoltativamente:
 
 ---
 
-## 8. API REST
+## <a name="8-api-rest"></a>8. API REST
 
 ### `GET /status`
 
@@ -1151,12 +1151,11 @@ Imposta l'orologio in tempo reale (RTC) del device.
 
 | Parametro | Tipo | Obbl. | Default | Descrizione |
 | --------- | ---- | ----- | ------- | ----------- |
-| `datetime` | string | ✅ | — | Data e ora in formato ISO-8601: `"yyyy-MM-ddTHH:mm:ss"` |
 | `password` | string | ❌ | `"TEK822"` | Password dispositivo |
 
 **Regole**:
-- Il campo `datetime` deve essere un `LocalDateTime` ISO-8601 valido (es. `"2026-03-11T12:30:00"`)
-- Il formato trasmesso al device è `yy/MM/dd:HH/mm/ss`
+- Nessun parametro obbligatorio
+- Il formato trasmesso al device è `yy/MM/dd:HH/mm/ss` ed il datetime è calcolato sulla base del timestamp del server
 
 **Esempio POST**:
 ```json
@@ -1164,9 +1163,7 @@ Imposta l'orologio in tempo reale (RTC) del device.
   "deviceId": "123456789012345",
   "deviceType": "TEK822V2",
   "commandType": "SET_RTC",
-  "parameters": {
-    "datetime": "2026-03-11T12:30:00"
-  }
+  "parameters": {}
 }
 ```
 **Comando ASCII generato**: `TEK822,R2=26/03/11:12/30/00`
@@ -1517,7 +1514,7 @@ Stato del servizio cleanup.
 
 ---
 
-## 9. Configurazione
+## <a name="9-configurazione"></a>9. Configurazione
 
 ### `application.properties` — tutti i parametri
 
@@ -1528,7 +1525,6 @@ Stato del servizio cleanup.
 | `tcp.server.port` | `8091` | `ONE_GAS_METEOR_TCP_SERVER_PORT` | Porta server TCP |
 | `tcp.server.max-connections` | `10000` | — | Numero massimo di connessioni TCP concorrenti (Semaphore permits) |
 | `tcp.server.backlog` | `1024` | — | Dimensione coda connessioni in attesa del `ServerSocket` |
-| `device.enabled.types` | `TEK822V1,TEK822V2,TEK586` | — | Device types abilitati (comma-separated) |
 | `database.type` | `sqlserver` | — | Tipo DB: `sqlserver`, `h2mem`, `postgresql`, `timescaledb` o `influxdb` |
 | `spring.datasource.url` | `jdbc:sqlserver://localhost:1433;databaseName=oneGasDB;encrypt=false;trustServerCertificate=true` | — | URL SQL Server |
 | `spring.datasource.username` | *(obbligatorio)* | `SQL_DB_USERNAME` | Username SQL Server |
@@ -1674,7 +1670,7 @@ docker compose -f docker-compose-influxdb.yml up -d
 
 ---
 
-## 10. Dispositivi Supportati
+## <a name="10-dispositivi-supportati"></a>10. Dispositivi Supportati
 
 La famiglia Tekelek TEK822 e dispositivi compatibili. Il product type è codificato in **byte[0]** del payload binario.
 
@@ -1695,11 +1691,9 @@ La famiglia Tekelek TEK822 e dispositivi compatibili. Il product type è codific
 | 27 | TEK898V2 | CSQ | Percentage |
 | 28 | TEK898V1 | CSQ | Percentage |
 
-> **Nota**: I device types abilitati per l'invio di comandi sono configurati in `device.enabled.types` (default: `TEK822V1,TEK822V2,TEK586`). Tutti i 14 tipi sono supportati per la decodifica dei messaggi in entrata.
-
 ---
 
-## 11. Pattern di Estensibilità
+## <a name="11-pattern-di-estensibilità"></a>11. Pattern di Estensibilità
 
 Il progetto usa il **Strategy Pattern** per decoder ed encoder, con Spring `@Order` per la priorità.
 
@@ -1812,7 +1806,7 @@ public class MioNuovoEncoder implements DeviceEncoder {
 
 ---
 
-## 12. Test
+## <a name="12-test"></a>12. Test
 
 La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 
@@ -1872,7 +1866,6 @@ La suite di test è situata in `src/test/java/com/aton/proj/oneGasMeteor/`.
 - Test password default `TEK822`
 
 #### `service/CommandServiceTest` (24 test)
-- Test validazione **deviceType** (deve essere in `device.enabled.types`)
 - Test validazione **commandType** (deve essere uno dei 17 validi)
 - Test validazione **parametri obbligatori** per ogni command type
 - Test rifiuto di parametri mancanti
@@ -1924,7 +1917,7 @@ mvn test -pl . -Dtest=TekMessageDecoderTest,TekMessageDecoderMeasurementTest
 
 ---
 
-## 13. Build & Run
+## <a name="13-build--run"></a>13. Build & Run
 
 ### Prerequisiti
 
@@ -1995,7 +1988,7 @@ docker run -p 8081:8081 -p 8091:8091 \
 
 ---
 
-## 14. Riferimenti alla Documentazione
+## <a name="14-riferimenti-alla-documentazione"></a>14. Riferimenti alla Documentazione
 
 Tutti i file di documentazione si trovano nella directory [`docs/`](../docs/) alla radice del progetto.
 
@@ -2034,7 +2027,7 @@ Tutti i file di documentazione si trovano nella directory [`docs/`](../docs/) al
 
 ---
 
-## 15. Note sulla Revisione del Codice
+## <a name="15-note-sulla-revisione-del-codice"></a>15. Note sulla Revisione del Codice
 
 Questa sezione documenta i problemi individuati e corretti durante la revisione della branch `copilot/check-code-correctness`.
 
