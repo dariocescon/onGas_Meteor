@@ -79,7 +79,8 @@ class CommandServiceTest {
 		assertTrue(ex.getMessage().contains("Unknown commandType"));
 	}
 
-	// ====================== Validazione parametri obbligatori ======================
+	// ====================== Validazione parametri obbligatori
+	// ======================
 
 	@Test
 	void testCreateCommand_setInterval_missingInterval() {
@@ -213,7 +214,7 @@ class CommandServiceTest {
 		when(encoderFactory.getEncoder("TEK822V2")).thenReturn(tek822Encoder);
 
 		Map<String, Object> allParams = Map.of("apn", "internet", "username", "user", "apnPassword", "pass");
-		
+
 		CommandEntity savedEntity = new CommandEntity("dev1", "TEK822V2", "SET_APN");
 		savedEntity.setId(4L);
 		savedEntity.setCommandParamsJson(objectMapper.writeValueAsString(allParams));
@@ -230,7 +231,8 @@ class CommandServiceTest {
 		assertEquals("pass", response.getParameters().get("apnPassword").toString());
 	}
 
-	// ====================== Comandi senza parametri obbligatori ======================
+	// ====================== Comandi senza parametri obbligatori
+	// ======================
 
 	@Test
 	void testCreateCommand_shutdown_noParams() {
@@ -348,16 +350,17 @@ class CommandServiceTest {
 		assertEquals("REBOOT", result.get(1).getCommandType());
 	}
 
-	// ====================== Tutti i commandType validi passano validazione ======================
+	// ====================== Tutti i commandType validi passano validazione
+	// ======================
 
 	@Test
 	void testAllValidCommandTypes_passValidation() {
 		when(encoderFactory.getEncoder("TEK822V2")).thenReturn(tek822Encoder);
 
 		// Comandi senza parametri obbligatori
-		List<String> noParamCommands = List.of("REBOOT", "REQUEST_STATUS", "SHUTDOWN",
-				"DEACTIVATE", "CLOSE_TCP", "REQUEST_GPS", "REQUEST_SETTINGS", "SET_SCHEDULE",
-				"RESET_RTC", "REQUEST_BUFFER_DATA", "REQUEST_DIAGNOSTIC_DATA");
+		List<String> noParamCommands = List.of("REBOOT", "REQUEST_STATUS", "SHUTDOWN", "DEACTIVATE", "CLOSE_TCP",
+				"REQUEST_GPS", "REQUEST_SETTINGS", "SET_SCHEDULE", "RESET_RTC", "REQUEST_BUFFER_DATA",
+				"REQUEST_DIAGNOSTIC_DATA");
 
 		for (String cmdType : noParamCommands) {
 			CommandEntity savedEntity = new CommandEntity("dev1", "TEK822V2", cmdType);
