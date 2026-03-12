@@ -55,7 +55,6 @@ public class CommandService {
 			Tek822Encoder.CMD_SET_INTERVAL, List.of("interval"),
 			Tek822Encoder.CMD_SET_LISTEN, List.of("listenMinutes"),
 			Tek822Encoder.CMD_SET_ALARM_THRESHOLD, List.of("threshold"),
-			Tek822Encoder.CMD_SET_RTC, List.of("datetime"),
 			Tek822Encoder.CMD_SET_APN, List.of("apn"),
 			Tek822Encoder.CMD_SET_SERVER, List.of("serverIp", "serverPort"));
 

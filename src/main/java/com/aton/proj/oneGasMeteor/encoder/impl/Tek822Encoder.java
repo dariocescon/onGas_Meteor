@@ -260,13 +260,10 @@ public class Tek822Encoder implements DeviceEncoder {
 	 * R2: Set RTC (sezione 3.21) Example: TEK822,R2=26/02/07:14/30/00
 	 */
 	private String encodeSetRTC(String password, DeviceCommand command) {
-		LocalDateTime dateTime = LocalDateTime.parse(command.getParameters().get("datetime").toString());
-
-		// Format: yy/mm/dd:hh/mm/ss
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yy/MM/dd:HH/mm/ss");
-		String formattedTime = dateTime.format(formatter);
-
-		return String.format("%s,R2=%s", password, formattedTime);
+	    // Usa il timestamp corrente (= momento dell'invio al device)
+	    LocalDateTime dateTime = LocalDateTime.now();
+	    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yy/MM/dd:HH/mm/ss");
+	    return String.format("%s,R2=%s", password, dateTime.format(formatter));
 	}
 
 	/**

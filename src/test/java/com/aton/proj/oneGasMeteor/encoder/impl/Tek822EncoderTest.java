@@ -7,12 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import com.aton.proj.oneGasMeteor.model.DeviceCommand;
 import com.aton.proj.oneGasMeteor.model.TelemetryResponse;
+import com.aton.proj.oneGasMeteor.model.TelemetryResponse.EncodedCommand;
 import com.aton.proj.oneGasMeteor.utils.ControllerUtils;
 
 class Tek822EncoderTest {
@@ -303,23 +306,16 @@ class Tek822EncoderTest {
 
 	@Test
 	void testSetRTC() {
+		DateTimeFormatter formatterFrom = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+	    DateTimeFormatter formatterTo = DateTimeFormatter.ofPattern("yy/MM/dd:HH/mm/ss");
+	    
+	    LocalDateTime dateTime = LocalDateTime.now();
 		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "SET_RTC");
-		cmd.addParameter("datetime", "2026-02-07T14:30:00");
+		cmd.addParameter("datetime", dateTime.format(formatterFrom));
 
 		encodeSingle(cmd);
 
-		assertEquals("TEK822,R2=26/02/07:14/30/00", cmd.getEncodedCommandASCII());
-		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
-	}
-
-	@Test
-	void testSetRTC_midnight() {
-		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "SET_RTC");
-		cmd.addParameter("datetime", "2025-12-31T00:00:00");
-
-		encodeSingle(cmd);
-
-		assertEquals("TEK822,R2=25/12/31:00/00/00", cmd.getEncodedCommandASCII());
+		assertEquals("TEK822,R2="+dateTime.format(formatterTo), cmd.getEncodedCommandASCII());
 		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
 	}
 
@@ -526,6 +522,23 @@ class Tek822EncoderTest {
 
 		assertEquals("TEK822,S15=84.51.250.104,S16=9000", cmd.getEncodedCommandASCII());
 		assertHexMatchesAscii(cmd.getEncodedCommandASCII(), cmd.getEncodedCommandHEX());
+	}
+	
+	@Test
+	void testSetServer2() {
+		DeviceCommand cmd = new DeviceCommand("dev1", "TEK822V2", "SET_SERVER");
+		cmd.addParameter("serverIp", "84.51.250.104");
+		cmd.addParameter("serverPort", "9000");
+		
+		List<TelemetryResponse.EncodedCommand> result = encoder.encode(List.of(cmd));
+		EncodedCommand setServerCommand = result.get(0);
+		EncodedCommand rebootCommand = result.get(1);
+		
+		assertEquals("TEK822,S15=84.51.250.104,S16=9000", setServerCommand.getAsciiData());
+		assertHexMatchesAscii(setServerCommand.getAsciiData(), setServerCommand.getEncodedData());
+		
+		assertEquals("TEK822,R3=ACTIVE", rebootCommand.getAsciiData());
+		assertHexMatchesAscii(rebootCommand.getAsciiData(), rebootCommand.getEncodedData());
 	}
 
 	// ====================== Comando sconosciuto ======================

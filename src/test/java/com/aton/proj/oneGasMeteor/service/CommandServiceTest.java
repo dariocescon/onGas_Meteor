@@ -116,17 +116,6 @@ class CommandServiceTest {
 	}
 
 	@Test
-	void testCreateCommand_setRTC_missingDatetime() {
-		when(encoderFactory.getEncoder("TEK822V2")).thenReturn(tek822Encoder);
-
-		CommandCreateRequest request = new CommandCreateRequest("dev1", "TEK822V2", "SET_RTC");
-
-		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-				() -> commandService.createCommand(request));
-		assertTrue(ex.getMessage().contains("datetime"));
-	}
-
-	@Test
 	void testCreateCommand_setAPN_missingApn() {
 		when(encoderFactory.getEncoder("TEK822V2")).thenReturn(tek822Encoder);
 
