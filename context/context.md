@@ -56,11 +56,11 @@ Il server:
 ## <a name="2-architettura-a-strati"></a>2. Architettura a Strati
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        TRANSPORT LAYER                          │
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                        TRANSPORT LAYER                                        │
 │   TcpSocketServer (:8091)   │   MeteorController / CommandController (:8081)  │
 │   TcpConnectionHandler      │   CleanupAdminController                        │
-└──────────────────┬──────────────────────────────────────────────┘
+└──────────────────┬────────────────────────────────────────────────────────────┘
                    │ TelemetryMessage
 ┌──────────────────▼──────────────────────────────────────────────┐
 │                        SERVICE LAYER                            │
